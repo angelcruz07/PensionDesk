@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:17.5-alpine
+    container_name: pension-desk-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-pension}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-pension}
+      POSTGRES_DB: ${DB_NAME:-pension_desk}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - pension-desk-network
+
+networks:
+  pension-desk-network:
+    driver: bridge
+
+volumes:
+  db_data:
