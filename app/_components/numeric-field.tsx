@@ -7,13 +7,27 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
-function parseLooseNumber(raw: string): number {
-  const cleaned = raw
-    .replace(/\s/g, "")
-    .replace(",", ".")
-    .replace(/[^\d.-]/g, "");
-  if (cleaned === "" || cleaned === "-" || cleaned === ".") return NaN;
-  const n = parseFloat(cleaned);
+/**
+ * Interpreta texto con formato es-MX (miles con coma, decimales con punto).
+ * En % el separador decimal puede ser coma (ej. 2,3).
+ */
+function parseLooseNumber(
+  raw: string,
+  variant: "decimal" | "integer" | "currency" | "percent"
+): number {
+  const s = raw.trim().replace(/\s/g, "");
+  if (s === "" || s === "-" || s === ".") return NaN;
+
+  if (variant === "percent") {
+    const oneComma = s.replace(",", ".");
+    const cleaned = oneComma.replace(/[^\d.-]/g, "");
+    const n = parseFloat(cleaned);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  // Miles con coma (150,000), decimales con punto (150000.5)
+  const normalized = s.replace(/,/g, "");
+  const n = parseFloat(normalized);
   return Number.isFinite(n) ? n : NaN;
 }
 
@@ -22,6 +36,7 @@ function formatDecimal(n: number, maxFrac: number): string {
   return new Intl.NumberFormat("es-MX", {
     maximumFractionDigits: maxFrac,
     minimumFractionDigits: 0,
+    useGrouping: true,
   }).format(n);
 }
 
@@ -35,14 +50,19 @@ function blurFormat(
     return formatDecimal(value * 100, Math.min(6, maxFractionDigits + 2));
   }
   if (variant === "integer") {
-    return String(Math.round(value));
+    return new Intl.NumberFormat("es-MX", {
+      maximumFractionDigits: 0,
+      minimumFractionDigits: 0,
+      useGrouping: true,
+    }).format(Math.round(value));
   }
   return formatDecimal(value, maxFractionDigits);
 }
 
 function focusEditString(
   value: number,
-  variant: "decimal" | "integer" | "currency" | "percent"
+  variant: "decimal" | "integer" | "currency" | "percent",
+  maxFractionDigits: number
 ): string {
   if (!Number.isFinite(value)) return "";
   if (variant === "percent") {
@@ -51,7 +71,8 @@ function focusEditString(
   if (variant === "integer") {
     return String(Math.round(value));
   }
-  return String(value).replace(".", ",");
+  // Sin miles al editar; punto decimal (coherente con parseLooseNumber)
+  return String(parseFloat(value.toFixed(maxFractionDigits)));
 }
 
 type Variant = "decimal" | "integer" | "currency" | "percent";
@@ -101,7 +122,7 @@ export function NumericField({
       onChange(0);
       return;
     }
-    let n = parseLooseNumber(raw);
+    let n = parseLooseNumber(raw, variant);
     if (variant === "percent") {
       n = (Number.isFinite(n) ? n : 0) / 100;
     }
@@ -194,7 +215,7 @@ export function NumericField({
           value={text}
           onFocus={() => {
             setFocused(true);
-            setText(focusEditString(value, variant));
+            setText(focusEditString(value, variant, maxFractionDigits));
           }}
           onChange={(e) => setText(e.target.value)}
           onBlur={() => {
@@ -214,7 +235,7 @@ export function NumericField({
         />
         {percentSuffix}
         {showStepper ? (
-          <div className="border-input flex w-9 shrink-0 flex-col border-l bg-muted/25">
+          <div className="border-input flex shrink-0 flex-col border-l bg-muted/25">
             <Button
               type="button"
               variant="ghost"

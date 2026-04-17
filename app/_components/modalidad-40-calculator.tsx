@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useId, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useId, useState, type ComponentType } from "react";
 import {
   Card,
   CardContent,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { calcDerived } from "@/lib/modalidad-40/formulas";
 import { cloneDefaultModalidadInputs } from "@/lib/modalidad-40/defaults";
 import type { ModalidadInputs } from "@/lib/modalidad-40/formulas";
@@ -52,8 +53,59 @@ const PAGE_NAV = [
   { id: "resultados-escenario", label: "Resultado y escenario" },
   { id: "plan-mod40", label: "Plan Modalidad 40" },
   { id: "finanzas-proyeccion", label: "Finanzas y proyección" },
-  { id: "tabla-250", label: "250 semanas" },
 ] as const;
+
+const EDADES_RETIRO = [60, 61, 62, 63, 64, 65] as const;
+
+function EdadRetiroSelector({
+  id,
+  label,
+  value,
+  onChange,
+  showHint = true,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+  showHint?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label
+        id={`${id}-label`}
+        className="text-muted-foreground block w-full text-sm font-medium leading-snug break-words"
+      >
+        {label}
+      </Label>
+      <div
+        id={`${id}-group`}
+        className="flex flex-wrap gap-1.5"
+        role="radiogroup"
+        aria-labelledby={`${id}-label`}
+      >
+        {EDADES_RETIRO.map((edad) => (
+          <Button
+            key={edad}
+            type="button"
+            variant={value === edad ? "default" : "outline"}
+            size="sm"
+            className="min-w-10 shrink-0 px-3"
+            onClick={() => onChange(edad)}
+            aria-checked={value === edad}
+            role="radio"
+            aria-label={`${edad} años`}
+          >
+            {edad}
+          </Button>
+        ))}
+      </div>
+      {showHint ? (
+        <p className="text-muted-foreground text-[11px]">Solo edades de 60 a 65 años.</p>
+      ) : null}
+    </div>
+  );
+}
 
 /** Enlaces compactos hacia secciones del panel principal. */
 function PageNavStrip() {
@@ -236,6 +288,23 @@ export function Modalidad40Calculator() {
   const [s, setS] = useState<ModalidadInputs>(() => cloneDefaultModalidadInputs());
   const [formKey, setFormKey] = useState(0);
 
+  useEffect(() => {
+    if (s.edadRetiro < 60 || s.edadRetiro > 65) {
+      setS((p) => ({
+        ...p,
+        edadRetiro: Math.min(65, Math.max(60, p.edadRetiro)),
+      }));
+    }
+  }, [s.edadRetiro]);
+
+  /** No puede iniciar Modalidad 40 después de la edad de retiro (evita años negativos). */
+  useEffect(() => {
+    setS((p) => {
+      if (p.edadInicioMod40 <= p.edadRetiro) return p;
+      return { ...p, edadInicioMod40: p.edadRetiro };
+    });
+  }, [s.edadRetiro, s.edadInicioMod40]);
+
   const derived = useMemo(() => calcDerived(s), [s]);
 
   const diffTone =
@@ -323,12 +392,9 @@ export function Modalidad40Calculator() {
       </header>
 
       <main className={`${PAGE_WRAP} py-4 sm:py-6 md:py-8`}>
-        <div className="flex flex-col gap-5 sm:gap-6 xl:flex-row xl:items-start xl:gap-6 2xl:gap-8">
-          <aside
-            className="scrollbar-hide w-full shrink-0 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-4.75rem)] xl:w-[min(30rem,100%)] xl:shrink-0 xl:overflow-y-auto xl:overflow-x-hidden xl:border-border xl:border-r xl:pr-5 2xl:w-[min(36rem,100%)] 2xl:pr-7"
-          >
+        <div className="space-y-5 sm:space-y-6 md:space-y-8">
+          <section id="captura-datos" className="space-y-3 sm:space-y-4">
             <Card
-              id="captura-datos"
               className="scroll-mt-24 overflow-hidden border-border shadow-sm"
             >
               <CardHeader className="gap-1 border-b border-border bg-muted/40 px-3 py-3 sm:px-4">
@@ -339,16 +405,16 @@ export function Modalidad40Calculator() {
                   o blur. ▲▼ ajustan el valor.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
+              <CardContent className="px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
             <FieldSection
               compact
-              id="bloque-semanas"
-              icon={CalendarClock}
-              title="Cotización y semanas"
-              description="Total calculado automáticamente."
+              id="bloque-parametros-unificados"
+              icon={Sliders}
+              title="Parámetros de entrada"
+              description="Captura distribuida en un solo bloque."
               accent="primary"
             >
-              <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <NumericField
                   key={`${fk}-sa`}
                   id={`${baseId}-sa`}
@@ -369,21 +435,6 @@ export function Modalidad40Calculator() {
                   unit="sem"
                   stepUpDown={{ step: 1, min: 0 }}
                 />
-                <Out label="Semanas cotizadas (total)" value={formatInteger(derived.semanasTotal)} />
-              </div>
-            </FieldSection>
-
-            <Separator className="my-1 bg-border/70" />
-
-            <FieldSection
-              compact
-              id="bloque-salario-uma"
-              icon={Landmark}
-              title="Salario, UMA y tope"
-              description="Montos en pesos; UMA anual."
-              accent="violet"
-            >
-              <div className="flex flex-col gap-3">
                 <NumericField
                   key={`${fk}-su`}
                   id={`${baseId}-su`}
@@ -394,16 +445,14 @@ export function Modalidad40Calculator() {
                   maxFractionDigits={2}
                   stepUpDown={{ step: 100, min: 0 }}
                 />
-                <NumericField
-                  key={`${fk}-ed`}
-                  id={`${baseId}-ed`}
-                  label="Edad de retiro"
-                  value={s.edadRetiro}
-                  onChange={(v) => setS((p) => ({ ...p, edadRetiro: v }))}
-                  variant="integer"
-                  unit="años"
-                  stepUpDown={{ step: 1, min: 16, max: 100 }}
-                />
+                <div className="md:col-span-2 xl:col-span-1">
+                  <EdadRetiroSelector
+                    id={`${baseId}-ed`}
+                    label="Edad de retiro"
+                    value={s.edadRetiro}
+                    onChange={(v) => setS((p) => ({ ...p, edadRetiro: v }))}
+                  />
+                </div>
                 <NumericField
                   key={`${fk}-uma`}
                   id={`${baseId}-uma`}
@@ -413,79 +462,6 @@ export function Modalidad40Calculator() {
                   variant="currency"
                   maxFractionDigits={2}
                   stepUpDown={{ step: 1, min: 0 }}
-                />
-                <Out
-                  label="Veces UMA (salario ÷ UMA)"
-                  value={formatNumber(derived.vecesUma, 4)}
-                />
-                <NumericField
-                  key={`${fk}-rango`}
-                  id={`${baseId}-rango`}
-                  label="Rango UMA"
-                  value={s.rangoUma}
-                  onChange={(v) => setS((p) => ({ ...p, rangoUma: v }))}
-                  variant="integer"
-                  stepUpDown={{ step: 1, min: 1 }}
-                />
-                <NumericField
-                  key={`${fk}-pct`}
-                  id={`${baseId}-pct`}
-                  label="Incremento salarial anual"
-                  value={s.pctIncrementoSalarial}
-                  onChange={(v) => setS((p) => ({ ...p, pctIncrementoSalarial: v }))}
-                  variant="percent"
-                  maxFractionDigits={4}
-                  hint="Ej. 2,3% como 2,3 en el campo con sufijo %."
-                  stepUpDown={{ step: 0.1, min: 0, max: 100 }}
-                />
-              </div>
-            </FieldSection>
-
-            <Separator className="my-1 bg-border/70" />
-
-            <FieldSection
-              compact
-              id="bloque-factores"
-              icon={Sliders}
-              title="Factores y ajustes"
-              description="Factor IMSS: calibra contra tu Excel."
-              accent="amber"
-            >
-              <div className="flex flex-col gap-3">
-                <NumericField
-                  key={`${fk}-sxm`}
-                  id={`${baseId}-sxm`}
-                  label="Semanas excedentes"
-                  value={s.semanasExcedentes}
-                  onChange={(v) => setS((p) => ({ ...p, semanasExcedentes: v }))}
-                  variant="integer"
-                  unit="sem"
-                  stepUpDown={{ step: 1, min: 0 }}
-                />
-                <NumericField
-                  key={`${fk}-ni`}
-                  id={`${baseId}-ni`}
-                  label="Número de incrementos"
-                  value={s.numIncrementos}
-                  onChange={(v) => setS((p) => ({ ...p, numIncrementos: v }))}
-                  variant="integer"
-                  stepUpDown={{ step: 1, min: 0 }}
-                />
-                <NumericField
-                  key={`${fk}-fi`}
-                  id={`${baseId}-fi`}
-                  label="Factor incremento"
-                  value={s.factorIncremento}
-                  onChange={(v) => setS((p) => ({ ...p, factorIncremento: v }))}
-                  stepUpDown={{ step: 0.05, min: 0 }}
-                />
-                <NumericField
-                  key={`${fk}-fe`}
-                  id={`${baseId}-fe`}
-                  label="Factor edad"
-                  value={s.factorEdad}
-                  onChange={(v) => setS((p) => ({ ...p, factorEdad: v }))}
-                  stepUpDown={{ step: 0.05, min: 0, max: 1 }}
                 />
                 <NumericField
                   key={`${fk}-fimss`}
@@ -506,16 +482,31 @@ export function Modalidad40Calculator() {
                   unit="años"
                   stepUpDown={{ step: 1, min: 0 }}
                 />
+                <NumericField
+                  key={`${fk}-s250`}
+                  id={`${baseId}-s250`}
+                  label="Salario prom. últimas 250 sem. IMSS (mensual)"
+                  value={s.salarioPromedio250ImssCaptura}
+                  onChange={(v) => setS((p) => ({ ...p, salarioPromedio250ImssCaptura: v }))}
+                  variant="currency"
+                  maxFractionDigits={2}
+                  hint="Opcional. Monto mensual del IMSS; 0 = usar solo el cálculo del modelo."
+                  stepUpDown={{ step: 100, min: 0 }}
+                />
               </div>
             </FieldSection>
               </CardContent>
             </Card>
-          </aside>
+          </section>
 
-          <div className="min-w-0 flex-1 space-y-5 sm:space-y-6 md:space-y-8">
-            <PageNavStrip />
+          <PageNavStrip />
 
-        <div id="resultados-escenario" className="scroll-mt-28 grid gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 lg:gap-6">
+        <section id="resultados-escenario" className="scroll-mt-28 space-y-3 sm:space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Datos calculados</h2>
+            <p className="text-muted-foreground text-sm">Resumen automático basado en los parámetros capturados.</p>
+          </div>
+          <div className="grid gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 xl:grid-cols-3 lg:gap-6">
           <Card className="border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">Resultado</CardTitle>
@@ -528,8 +519,12 @@ export function Modalidad40Calculator() {
                 value={formatCurrency(derived.pensionActual)}
               />
               <Out
+                label="Semanas excedentes (sobre 500)"
+                value={formatInteger(derived.semanasExcedentes)}
+              />
+              <Out
                 label="Incremento salarial (referencia)"
-                value={formatPercentFromRate(s.pctIncrementoSalarial)}
+                value={formatPercentFromRate(derived.pctIncrementoSalarial)}
               />
             </CardContent>
           </Card>
@@ -541,14 +536,52 @@ export function Modalidad40Calculator() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Out
-                label="Salario promedio últimas 250 semanas (prox.)"
+                label={
+                  derived.usaSalario250ImssManual
+                    ? "Salario prom. 250 sem. (IMSS capturado)"
+                    : "Salario prom. 250 sem. (modelo combinado)"
+                }
                 value={formatCurrency(derived.salarioPromedio250)}
               />
               <Out emphasis label="Nueva pensión" value={formatCurrency(derived.nuevaPension)} />
               <Out label="Diferencia vs. pensión actual" value={formatCurrency(derived.diferencia)} />
             </CardContent>
           </Card>
-        </div>
+
+          <Card className="border-border shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg">Resumen de cálculos automáticos</CardTitle>
+              <CardDescription>Valores derivados para referencia rápida.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Out label="Semanas cotizadas (total)" value={formatInteger(derived.semanasTotal)} />
+              <Out label="Veces UMA (salario ÷ UMA)" value={formatNumber(derived.vecesUma, 1)} />
+              <Out label="Rango UMA" value={derived.rangoUma} />
+              <Out
+                label="Incremento salarial anual"
+                value={formatPercentFromRate(derived.pctIncrementoSalarial)}
+              />
+              <Out label="Número de incrementos" value={formatInteger(derived.numIncrementos)} />
+              <Out label="Factor incremento" value={formatNumber(derived.factorIncremento, 2)} />
+              <Out label="Factor edad" value={formatNumber(derived.factorEdad, 2)} />
+              <Out
+                label="Pago anual normal"
+                value={formatCurrency(derived.pagoAnualNormal)}
+              />
+              <Out
+                label="Pago Modalidad 40"
+                value={formatCurrency(derived.pagoModalidad40Total)}
+              />
+            </CardContent>
+          </Card>
+          </div>
+        </section>
+
+        <section className="space-y-3 sm:space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Cálculo Modalidad 40</h2>
+            <p className="text-muted-foreground text-sm">Proyección, finanzas y desglose del escenario.</p>
+          </div>
 
         <Card
           id="plan-mod40"
@@ -567,15 +600,12 @@ export function Modalidad40Calculator() {
           </CardHeader>
           <CardContent className="pt-5 md:pt-6">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              <NumericField
-                key={`${fk}-eir`}
+              <EdadRetiroSelector
                 id={`${baseId}-eir`}
                 label="Edad de retiro (plan)"
                 value={s.edadRetiro}
                 onChange={(v) => setS((p) => ({ ...p, edadRetiro: v }))}
-                variant="integer"
-                unit="años"
-                stepUpDown={{ step: 1, min: 16, max: 100 }}
+                showHint={false}
               />
               <NumericField
                 key={`${fk}-eim`}
@@ -585,24 +615,27 @@ export function Modalidad40Calculator() {
                 onChange={(v) => setS((p) => ({ ...p, edadInicioMod40: v }))}
                 variant="integer"
                 unit="años"
-                stepUpDown={{ step: 1, min: 16, max: 100 }}
-              />
-              <Out label="Años de Modalidad 40" value={formatNumber(derived.aniosMod40, 0)} />
-              <NumericField
-                key={`${fk}-pap`}
-                id={`${baseId}-pap`}
-                label="Pago anual"
-                value={s.pagoAnualPlan}
-                onChange={(v) => setS((p) => ({ ...p, pagoAnualPlan: v }))}
-                variant="currency"
-                maxFractionDigits={2}
+                hint="Debe ser menor o igual a la edad de retiro."
+                stepUpDown={{
+                  step: 1,
+                  min: 57,
+                  max: Math.min(100, s.edadRetiro),
+                }}
               />
               <NumericField
-                key={`${fk}-udis`}
-                id={`${baseId}-udis`}
-                label="UDIs"
-                value={s.udisPlan}
-                onChange={(v) => setS((p) => ({ ...p, udisPlan: v }))}
+                key={`${fk}-c40`}
+                id={`${baseId}-c40`}
+                label="Cantidad de años Mod. 40"
+                value={s.cantidadAniosMod40}
+                onChange={(v) => setS((p) => ({ ...p, cantidadAniosMod40: v }))}
+                variant="integer"
+              />
+              <NumericField
+                key={`${fk}-vudi`}
+                id={`${baseId}-vudi`}
+                label="Valor UDI"
+                value={s.valorUdi}
+                onChange={(v) => setS((p) => ({ ...p, valorUdi: v }))}
               />
               <NumericField
                 key={`${fk}-ptp`}
@@ -624,80 +657,40 @@ export function Modalidad40Calculator() {
           </CardContent>
         </Card>
 
-        <div id="finanzas-proyeccion" className="scroll-mt-28 grid gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 lg:gap-6">
-          <Card className="border-border shadow-sm">
-            <CardHeader className="gap-1 pb-3 sm:pb-4">
-              <div className="flex items-center gap-2">
-                <span className="bg-muted text-emerald-800 inline-flex h-9 w-9 items-center justify-center rounded-md border border-border sm:h-10 sm:w-10">
-                  <PiggyBank className="h-5 w-5" aria-hidden />
-                </span>
-                <div>
-                  <CardTitle className="text-lg">Variables financieras</CardTitle>
-                  <CardDescription>IMSS, UDIs y pagos.</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <NumericField
-                  key={`${fk}-pimss`}
-                  id={`${baseId}-pimss`}
-                  label="Pago al IMSS"
-                  value={s.pagoImss}
-                  onChange={(v) => setS((p) => ({ ...p, pagoImss: v }))}
-                  variant="currency"
-                  maxFractionDigits={2}
-                />
-                <NumericField
-                  key={`${fk}-c40`}
-                  id={`${baseId}-c40`}
-                  label="Cantidad de años Mod. 40"
-                  value={s.cantidadAniosMod40}
-                  onChange={(v) => setS((p) => ({ ...p, cantidadAniosMod40: v }))}
-                  variant="integer"
-                />
-                <NumericField
-                  key={`${fk}-paf`}
-                  id={`${baseId}-paf`}
-                  label="Pago anual"
-                  value={s.pagoAnualFin}
-                  onChange={(v) => setS((p) => ({ ...p, pagoAnualFin: v }))}
-                  variant="currency"
-                  maxFractionDigits={2}
-                />
-                <NumericField
-                  key={`${fk}-pm40`}
-                  id={`${baseId}-pm40`}
-                  label="Pago Modalidad 40"
-                  value={s.pagoModalidad40}
-                  onChange={(v) => setS((p) => ({ ...p, pagoModalidad40: v }))}
-                  variant="currency"
-                  maxFractionDigits={2}
-                />
-                <NumericField
-                  key={`${fk}-vudi`}
-                  id={`${baseId}-vudi`}
-                  label="Valor UDI"
-                  value={s.valorUdi}
-                  onChange={(v) => setS((p) => ({ ...p, valorUdi: v }))}
-                />
-                <NumericField
-                  key={`${fk}-udiR`}
-                  id={`${baseId}-udiR`}
-                  label="UDIs de resguardo al año"
-                  value={s.udisResguardoAnio}
-                  onChange={(v) => setS((p) => ({ ...p, udisResguardoAnio: v }))}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
+        <div id="finanzas-proyeccion" className="scroll-mt-28">
           <Card className="border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Proyección final</CardTitle>
-              <CardDescription>Resumen combinado con la tabla de 250 semanas.</CardDescription>
+              <CardTitle className="text-lg">Resumen financiero y proyección final</CardTitle>
+              <CardDescription>Consolidado de variables calculadas y resultado final.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <Out
+                label="Pago al IMSS (18.8% de salario 250)"
+                value={formatCurrency(derived.pagoImss)}
+              />
+              <Out
+                label="Pago anual normal (Pago al IMSS × 12)"
+                value={formatCurrency(derived.pagoAnualNormal)}
+              />
+              <Out
+                label="UDIs"
+                value={
+                  derived.udis === null ? "—" : formatNumber(derived.udis, 2)
+                }
+              />
+              <Out
+                label="Pago total de UDIs (UDIs × años en Mod. 40)"
+                value={
+                  derived.pagoTotalUdisModalidad === null
+                    ? "—"
+                    : formatNumber(derived.pagoTotalUdisModalidad, 2)
+                }
+              />
+              <Out
+                label="Pago Modalidad 40 (cantidad × pago anual normal)"
+                value={formatCurrency(derived.pagoModalidad40Total)}
+              />
+              <Separator />
               <Out
                 label="Salario IMSS × años con sueldo promedio"
                 value={formatCurrency(derived.totalSalarioHistorial)}
@@ -738,7 +731,10 @@ export function Modalidad40Calculator() {
               </span>
               <div>
                 <CardTitle className="text-lg">250 semanas cotizadas</CardTitle>
-                <CardDescription>Desglose enlazado a los valores actuales.</CardDescription>
+                <CardDescription>
+                  Desglose actual. Si capturaste el salario IMSS arriba, sustituye al promedio
+                  combinado del modelo para la pensión estimada.
+                </CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -771,6 +767,22 @@ export function Modalidad40Calculator() {
                     </TableCell>
                   </TableRow>
                   <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
+                    <TableCell className="py-3 pr-4">
+                      Salario prom. 250 sem. IMSS (captura, mensual)
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
+                      {s.salarioPromedio250ImssCaptura > 0
+                        ? formatCurrency(s.salarioPromedio250ImssCaptura)
+                        : "—"}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
+                    <TableCell className="py-3 pr-4">Salario IMSS combinado (modelo)</TableCell>
+                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
+                      {formatCurrency(derived.salarioPromedioImssCombinado)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
                     <TableCell className="py-3 pr-4">Años con Mod. 40</TableCell>
                     <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
                       {formatNumber(derived.aniosMod40, 0)}
@@ -787,7 +799,7 @@ export function Modalidad40Calculator() {
             </div>
           </CardContent>
         </Card>
-          </div>
+        </section>
         </div>
       </main>
     </div>

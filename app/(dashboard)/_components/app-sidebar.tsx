@@ -31,13 +31,14 @@ const workspaceItems = [
     icon: Calculator,
     tooltip: "Motor de estimación y escenarios IMSS",
   },
-  {
-    title: "Cuenta y preferencias",
-    href: "/configuracion",
-    icon: Settings,
-    tooltip: "Perfil, suscripción y seguridad",
-  },
 ];
+
+const accountItem = {
+  title: "Cuenta y preferencias",
+  href: "/configuracion",
+  icon: Settings,
+  tooltip: "Perfil, suscripción y seguridad",
+};
 
 const managementItems = [
   {
@@ -142,6 +143,31 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <div className="mt-auto">
+          <SidebarSeparator className="mx-0" />
+          <SidebarGroup className="pb-0">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    isActive={pathname === accountItem.href}
+                    tooltip={accountItem.tooltip}
+                    render={
+                      <Link
+                        href={accountItem.href}
+                        className="flex w-full items-center gap-2"
+                      />
+                    }
+                  >
+                    <accountItem.icon className="shrink-0" />
+                    <span>{accountItem.title}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </div>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/80">
