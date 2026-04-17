@@ -8,8 +8,6 @@ export const DEFAULT_MODALIDAD_INPUTS: ModalidadInputs = {
   umaMensual: 3566.22,
   edadInicioMod40: 57,
   pagoAnualPlan: 0,
-  pagoTotalProyecto: 0,
-  pagoTotalUdis: 0,
   cantidadAniosMod40: 1,
   valorUdi: 8.82,
   factorImssVsNominal: 33.84 / 15,

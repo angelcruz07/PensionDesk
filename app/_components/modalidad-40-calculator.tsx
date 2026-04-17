@@ -637,22 +637,6 @@ export function Modalidad40Calculator() {
                 value={s.valorUdi}
                 onChange={(v) => setS((p) => ({ ...p, valorUdi: v }))}
               />
-              <NumericField
-                key={`${fk}-ptp`}
-                id={`${baseId}-ptp`}
-                label="Pago total del proyecto"
-                value={s.pagoTotalProyecto}
-                onChange={(v) => setS((p) => ({ ...p, pagoTotalProyecto: v }))}
-                variant="currency"
-                maxFractionDigits={2}
-              />
-              <NumericField
-                key={`${fk}-ptu`}
-                id={`${baseId}-ptu`}
-                label="Pago total en UDIs"
-                value={s.pagoTotalUdis}
-                onChange={(v) => setS((p) => ({ ...p, pagoTotalUdis: v }))}
-              />
             </div>
           </CardContent>
         </Card>

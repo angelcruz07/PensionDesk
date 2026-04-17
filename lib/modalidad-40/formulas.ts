@@ -13,8 +13,6 @@ export type ModalidadInputs = {
   umaMensual: number;
   edadInicioMod40: number;
   pagoAnualPlan: number;
-  pagoTotalProyecto: number;
-  pagoTotalUdis: number;
   cantidadAniosMod40: number;
   valorUdi: number;
   /** Peso histórico respecto al salario nominal (calibra hacia el ejemplo Excel). */
