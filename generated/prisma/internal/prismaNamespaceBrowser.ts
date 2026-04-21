@@ -52,6 +52,7 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   User: 'User',
+  Subscription: 'Subscription',
   Session: 'Session',
   Account: 'Account',
   Verification: 'Verification'
@@ -79,11 +80,37 @@ export const UserScalarFieldEnum = {
   email: 'email',
   emailVerified: 'emailVerified',
   image: 'image',
+  stripeCustomerId: 'stripeCustomerId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof UserScalarFieldEnum]
+
+
+export const SubscriptionScalarFieldEnum = {
+  id: 'id',
+  plan: 'plan',
+  referenceId: 'referenceId',
+  stripeCustomerId: 'stripeCustomerId',
+  stripeSubscriptionId: 'stripeSubscriptionId',
+  status: 'status',
+  periodStart: 'periodStart',
+  periodEnd: 'periodEnd',
+  trialStart: 'trialStart',
+  trialEnd: 'trialEnd',
+  cancelAtPeriodEnd: 'cancelAtPeriodEnd',
+  cancelAt: 'cancelAt',
+  canceledAt: 'canceledAt',
+  endedAt: 'endedAt',
+  seats: 'seats',
+  billingInterval: 'billingInterval',
+  stripeScheduleId: 'stripeScheduleId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type SubscriptionScalarFieldEnum = (typeof SubscriptionScalarFieldEnum)[keyof typeof SubscriptionScalarFieldEnum]
 
 
 export const SessionScalarFieldEnum = {

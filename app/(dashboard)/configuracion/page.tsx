@@ -12,11 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  CreditCard,
-  KeyRound,
-  UserRound,
-} from "lucide-react";
+import { KeyRound, UserRound } from "lucide-react";
+import { SubscriptionCard } from "./_components/subscription-card";
 
 export const metadata: Metadata = {
   title: "Configuración · Pensión Desk",
@@ -27,7 +24,13 @@ const PAGE =
   "mx-auto w-full max-w-screen-2xl px-3 sm:px-5 md:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-8 md:py-10";
 
 /** Valores solo demostrativos hasta que exista autenticación y sesión. */
-export default function ConfiguracionPage() {
+export default async function ConfiguracionPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ planRequired?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const forcePlanSelection = resolvedSearchParams?.planRequired === "1";
   return (
     <div className={PAGE}>
       <div className="mb-6 space-y-2 sm:mb-8">
@@ -96,61 +99,7 @@ export default function ConfiguracionPage() {
           </CardFooter>
         </Card>
 
-        <Card className="min-w-0 border-border shadow-sm">
-          <CardHeader className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="bg-amber-500/12 text-amber-800 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-                <CreditCard className="h-4 w-4" aria-hidden />
-              </span>
-              <div className="min-w-0">
-                <CardTitle className="text-lg">Suscripción</CardTitle>
-                <CardDescription>Plan, facturación y estado del servicio.</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="min-w-0 space-y-2">
-                <Label htmlFor="cfg-plan">Plan</Label>
-                <Input
-                  id="cfg-plan"
-                  readOnly
-                  defaultValue="Demo / sin cobro"
-                  className="h-10 w-full bg-muted/40"
-                />
-              </div>
-              <div className="min-w-0 space-y-2">
-                <Label htmlFor="cfg-estado">Estado</Label>
-                <Input
-                  id="cfg-estado"
-                  readOnly
-                  defaultValue="Activo (simulado)"
-                  className="h-10 w-full bg-muted/40"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cfg-renovacion">Próxima renovación</Label>
-              <Input
-                id="cfg-renovacion"
-                readOnly
-                defaultValue="—"
-                className="h-10 w-full bg-muted/40"
-              />
-            </div>
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              La pasarela de pago y el historial de facturas se habilitarán con tu suscripción real.
-            </p>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-3 border-t bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground hidden text-xs sm:max-w-[55%] sm:block">
-              Facturación y métodos de pago se configurarán aquí.
-            </p>
-            <Button type="button" variant="outline" disabled className="w-full sm:ml-auto sm:w-auto">
-              Gestionar plan
-            </Button>
-          </CardFooter>
-        </Card>
+        <SubscriptionCard forcePlanSelection={forcePlanSelection} />
 
         <Card className="min-w-0 border-border shadow-sm xl:col-span-2">
           <CardHeader className="space-y-1">

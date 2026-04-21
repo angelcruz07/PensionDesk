@@ -1,12 +1,48 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "@/lib/prisma";
-import { stripe } from "@better-auth/stripe"
-import Stripe from "stripe"
+import { stripe } from "@better-auth/stripe";
+import Stripe from "stripe";
 
-const stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2026-03-25.dahlia", // Latest API version as of Stripe SDK v22.0.0
-})
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
+
+const subscriptionPlans = [
+  {
+    name: "Plan Esencial",
+    priceId: process.env.STRIPE_PRICE_ID_PLAN_ESENCIAL!,
+  },
+  {
+    name: "Plan Profesional",
+    priceId: process.env.STRIPE_PRICE_ID_PLAN_PROFESIONAL!,
+  },
+  {
+    name: "Plan Despacho",
+    priceId: process.env.STRIPE_PRICE_ID_PLAN_DESPACHO!,
+  },
+];
+
+const stripeSubscriptionPlans = subscriptionPlans.filter(
+  (p) => (p.priceId ?? "").trim().length > 0,
+);
+
+const stripePlugin =
+  stripeSecretKey != null && stripeSecretKey.length > 0
+    ? stripe({
+        stripeClient: new Stripe(stripeSecretKey, {
+          apiVersion: "2026-03-25.dahlia",
+        }),
+        stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
+        createCustomerOnSignUp: true,
+        ...(stripeSubscriptionPlans.length > 0
+          ? {
+              subscription: {
+                enabled: true,
+                plans: stripeSubscriptionPlans,
+              },
+            }
+          : {}),
+      })
+    : null;
 
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
@@ -17,11 +53,5 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
-  plugins: [
-    stripe({
-        stripeClient,
-        stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
-        createCustomerOnSignUp: true,
-    })
-]
+  plugins: stripePlugin ? [stripePlugin] : [],
 });
