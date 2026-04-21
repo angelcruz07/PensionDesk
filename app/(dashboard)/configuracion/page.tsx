@@ -27,10 +27,11 @@ const PAGE =
 export default async function ConfiguracionPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ planRequired?: string }>;
+  searchParams?: Promise<{ planRequired?: string; error?: string }>;
 }) {
   const resolvedSearchParams = await searchParams;
   const forcePlanSelection = resolvedSearchParams?.planRequired === "1";
+  const accessError = resolvedSearchParams?.error;
   return (
     <div className={PAGE}>
       <div className="mb-6 space-y-2 sm:mb-8">
@@ -99,7 +100,7 @@ export default async function ConfiguracionPage({
           </CardFooter>
         </Card>
 
-        <SubscriptionCard forcePlanSelection={forcePlanSelection} />
+        <SubscriptionCard forcePlanSelection={forcePlanSelection} accessError={accessError} />
 
         <Card className="min-w-0 border-border shadow-sm xl:col-span-2">
           <CardHeader className="space-y-1">

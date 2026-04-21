@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CreditCard } from "lucide-react";
+import { AlertCircle, AlertTriangle, CreditCard } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { subscriptionPlans as subscriptionPlansConfig } from "@/lib/subscription-plans";
 
@@ -47,6 +47,8 @@ type ActiveSub = {
   createdAt?: string | Date | null;
   periodEnd?: string | Date | null;
 };
+
+type AccessErrorCode = "expired_essential" | "payment_issue" | "no_plan";
 
 const ESSENTIAL_PLAN_NAME = "plan esencial";
 const ESSENTIAL_PLAN_DURATION_MS = 48 * 60 * 60 * 1000;
@@ -84,7 +86,13 @@ function isEssentialPlanExpired(sub: ActiveSub) {
   return Date.now() - createdAtDate.getTime() > ESSENTIAL_PLAN_DURATION_MS;
 }
 
-export function SubscriptionCard({ forcePlanSelection = false }: { forcePlanSelection?: boolean }) {
+export function SubscriptionCard({
+  forcePlanSelection = false,
+  accessError,
+}: {
+  forcePlanSelection?: boolean;
+  accessError?: string;
+}) {
   const router = useRouter();
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const [activeSub, setActiveSub] = useState<ActiveSub | null>(null);
@@ -180,6 +188,38 @@ export function SubscriptionCard({ forcePlanSelection = false }: { forcePlanSele
   const showPlans =
     Boolean(session?.user) && !listPending && !activeSub && plansForUi.length > 0;
 
+  const normalizedAccessError = (accessError ?? "").toLowerCase();
+  const redirectErrorCode: AccessErrorCode =
+    normalizedAccessError === "expired_essential" || normalizedAccessError === "payment_issue"
+      ? normalizedAccessError
+      : "no_plan";
+  const alertCode: AccessErrorCode | null = forcePlanSelection ? redirectErrorCode : null;
+  const alertUi =
+    alertCode === "payment_issue"
+      ? {
+          className:
+            "flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-800",
+          icon: <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />,
+          message:
+            "Hubo un problema con tu pago o tu suscripción está inactiva. Actualiza tu plan para recuperar el acceso.",
+        }
+      : alertCode === "expired_essential"
+        ? {
+            className:
+              "flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800",
+            icon: <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />,
+            message:
+              "Tu acceso de 48 horas ha concluido. Elige un plan mensual para seguir usando la calculadora y generar reportes.",
+          }
+        : alertCode === "no_plan"
+          ? {
+              className:
+                "flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800",
+              icon: <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />,
+              message: "Selecciona un plan para comenzar a usar PensionDesk.",
+            }
+          : null;
+
   return (
     <Card className="min-w-0 border-border shadow-sm">
       <CardHeader className="space-y-1">
@@ -194,11 +234,11 @@ export function SubscriptionCard({ forcePlanSelection = false }: { forcePlanSele
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {forcePlanSelection ? (
-          <p className="text-amber-700 text-xs leading-relaxed">
-            Tu acceso a la calculadora está bloqueado porque el Plan Esencial expiró (48 horas).
-            Para continuar, selecciona un nuevo plan: Profesional o Despacho.
-          </p>
+        {alertUi ? (
+          <div className={alertUi.className}>
+            {alertUi.icon}
+            <p>{alertUi.message}</p>
+          </div>
         ) : null}
         {listError ? (
           <p className="text-destructive text-xs leading-relaxed">{listError}</p>

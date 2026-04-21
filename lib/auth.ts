@@ -5,6 +5,7 @@ import { stripe } from "@better-auth/stripe";
 import Stripe from "stripe";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
 
 const subscriptionPlans = [
   {
@@ -27,21 +28,28 @@ const stripeSubscriptionPlans = subscriptionPlans.filter(
 
 const stripePlugin =
   stripeSecretKey != null && stripeSecretKey.length > 0
-    ? stripe({
-        stripeClient: new Stripe(stripeSecretKey, {
-          apiVersion: "2026-03-25.dahlia",
-        }),
-        stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET ?? "",
-        createCustomerOnSignUp: true,
-        ...(stripeSubscriptionPlans.length > 0
-          ? {
-              subscription: {
-                enabled: true,
-                plans: stripeSubscriptionPlans,
-              },
-            }
-          : {}),
-      })
+    ? (() => {
+        if (!stripeWebhookSecret) {
+          throw new Error(
+            "Missing STRIPE_WEBHOOK_SECRET: Stripe webhooks must be signed and verified.",
+          );
+        }
+        return stripe({
+          stripeClient: new Stripe(stripeSecretKey, {
+            apiVersion: "2026-03-25.dahlia",
+          }),
+          stripeWebhookSecret,
+          createCustomerOnSignUp: true,
+          ...(stripeSubscriptionPlans.length > 0
+            ? {
+                subscription: {
+                  enabled: true,
+                  plans: stripeSubscriptionPlans,
+                },
+              }
+            : {}),
+        });
+      })()
     : null;
 
 export const auth = betterAuth({
