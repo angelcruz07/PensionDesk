@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useId, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useId, useState } from "react";
 import {
   Card,
   CardContent,
@@ -25,13 +25,10 @@ import { NumericField } from "./numeric-field";
 import {
   Activity,
   Calculator,
-  CalendarClock,
-  Landmark,
-  PiggyBank,
   RotateCcw,
-  Sliders,
   Sparkles,
 } from "lucide-react";
+import { Out } from "./Out";
 
 /** Ancho fluido; paddings más ajustados en móvil (patrón dashboard shadcn). */
 const PAGE_WRAP =
@@ -232,120 +229,7 @@ function Kpi({
   );
 }
 
-function Out({
-  label,
-  value,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div
-      className={cx(
-        "flex items-start justify-between gap-3 rounded-md border px-3 py-2.5 transition-colors sm:gap-4 sm:px-3.5",
-        emphasis
-          ? "border-primary/25 bg-muted/50"
-          : "border-border bg-muted/30"
-      )}
-    >
-      <p
-        className={cx(
-          "max-w-[75%] text-xs leading-snug font-medium",
-          emphasis ? "text-foreground" : "text-muted-foreground"
-        )}
-      >
-        {label}
-      </p>
-      <p className="shrink-0 text-right font-mono text-sm font-semibold tabular-nums tracking-tight text-foreground">
-        {value}
-      </p>
-    </div>
-  );
-}
 
-function FieldSection({
-  icon: Icon,
-  title,
-  description,
-  children,
-  accent = "primary",
-  id,
-  compact,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  accent?: "primary" | "violet" | "amber" | "emerald";
-  id?: string;
-  /** Una sola columna, paddings reducidos (panel lateral). */
-  compact?: boolean;
-}) {
-  const ring =
-    accent === "violet"
-      ? "ring-violet-500/10"
-      : accent === "amber"
-        ? "ring-amber-500/10"
-        : accent === "emerald"
-          ? "ring-emerald-500/10"
-          : "ring-primary/10";
-
-  const iconT =
-    accent === "violet"
-      ? "text-violet-600"
-      : accent === "amber"
-        ? "text-amber-700"
-        : accent === "emerald"
-          ? "text-emerald-700"
-          : "text-primary";
-
-  return (
-    <div
-      id={id}
-      className={cx(
-        "relative scroll-mt-24 rounded-lg border border-border bg-card shadow-sm",
-        compact ? "p-3 ring-1" : "p-3.5 ring-1 md:p-4",
-        ring
-      )}
-    >
-      <div className={cx("relative flex flex-col", compact ? "gap-3" : "gap-4 md:gap-5")}>
-        <div className="flex items-start gap-3">
-          <span
-            className={cx(
-              "bg-muted inline-flex shrink-0 items-center justify-center rounded-md border border-border",
-              compact ? "h-9 w-9" : "h-10 w-10"
-            )}
-          >
-            <Icon className={cx(compact ? "h-4 w-4" : "h-5 w-5", iconT)} aria-hidden />
-          </span>
-          <div className="min-w-0 pt-0.5">
-            <h3
-              className={cx(
-                "font-heading font-semibold tracking-tight",
-                compact ? "text-sm leading-snug" : "text-base"
-              )}
-            >
-              {title}
-            </h3>
-            {description ? (
-              <p
-                className={cx(
-                  "text-muted-foreground mt-1 leading-relaxed",
-                  compact ? "text-[11px]" : "text-sm"
-                )}
-              >
-                {description}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export function Modalidad40Calculator() {
   const baseId = useId();
@@ -601,7 +485,7 @@ export function Modalidad40Calculator() {
                 value={formatCurrency(derived.pensionActual)}
               />
               <Out
-                label="Semanas excedentes (sobre 500)"
+                label="Semanas excedentes"
                 value={formatInteger(derived.semanasExcedentes)}
               />
               <Out
@@ -639,8 +523,11 @@ export function Modalidad40Calculator() {
             </CardHeader>
             <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <Out label="Semanas cotizadas (total)" value={formatInteger(derived.semanasTotal)} />
-              <Out label="Semanas cotizadas faltantes" value={formatInteger(s.semanasFaltantes)} />
-              <Out label="Veces UMA (salario ÷ UMA)" value={formatNumber(derived.vecesUma, 1)} />
+              <Out
+                label="Semanas cotizadas faltantes"
+                value={formatInteger(derived.semanasFaltantesCalculadas)}
+              />
+              <Out label="Veces UMA" value={formatNumber(derived.vecesUma, 1)} />
               <Out label="Rango UMA" value={derived.rangoUma} />
               <Out label="Valor UDI" value={formatNumber(s.valorUdi, 2)} />
               <Out label="Valor UMA mensual" value={formatCurrency(s.umaMensual)} />
@@ -681,11 +568,11 @@ export function Modalidad40Calculator() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Out
-                label="Pago al IMSS (18.8% de salario 250)"
+                label="Pago al IMSS"
                 value={formatCurrency(derived.pagoImss)}
               />
               <Out
-                label="Pago anual normal (Pago al IMSS × 12)"
+                label="Pago anual normal)"
                 value={formatCurrency(derived.pagoAnualNormal)}
               />
               <Out
@@ -695,7 +582,7 @@ export function Modalidad40Calculator() {
                 }
               />
               <Out
-                label="Pago total de UDIs (UDIs × años en Mod. 40)"
+                label="Pago total de UDIs "
                 value={
                   derived.pagoTotalUdisModalidad === null
                     ? "—"
@@ -735,7 +622,6 @@ export function Modalidad40Calculator() {
             </CardContent>
           </Card>
         </div>
-
         </section>
         </div>
       </main>

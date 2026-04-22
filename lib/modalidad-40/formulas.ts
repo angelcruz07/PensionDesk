@@ -28,6 +28,7 @@ export type ModalidadInputs = {
 };
 
 export type ModalidadDerived = {
+  semanasFaltantesCalculadas: number;
   semanasTotal: number;
   semanasExcedentes: number;
   numIncrementos: number;
@@ -66,7 +67,7 @@ export function divisionSegura(numerador: number, denominador: number): number |
   return numerador / denominador;
 }
 
-/** Semanas totales = actuales + faltantes. */
+/** Semanas cotizadas proyectadas = actuales + faltantes. */
 export function semanasCotizadasTotales(semanasActuales: number, semanasFaltantes: number): number {
   return semanasActuales + semanasFaltantes;
 }
@@ -90,7 +91,7 @@ export function vecesUma(sueldoMensual: number, umaMensual: number): number {
   return umaMensual > 0 ? sueldoMensual / umaMensual : 0;
 }
 
-/** Rango UMA por tramos Excel: <=1..<=5 y después 6+. */
+/** Rango UMA */
 export function rangoUmaDesdeVecesUma(valorVecesUma: number): "1" | "2" | "3" | "4" | "5" | "6+" {
   if (!Number.isFinite(valorVecesUma) || valorVecesUma <= 1) return "1";
   if (valorVecesUma <= 2) return "2";
@@ -110,7 +111,7 @@ export function incrementoSalarialDesdeVecesUma(valorVecesUma: number): number {
   return 0.013;
 }
 
-/** Factor edad según Excel: SI(B6=60,0.75,...,SI(B6>=65,1,0)). */
+/** Calculo factor edad */
 export function factorEdadDesdeEdadRetiro(edadRetiro: number): number {
   if (edadRetiro === 60) return 0.75;
   if (edadRetiro === 61) return 0.8;
@@ -215,8 +216,20 @@ export function pensionMensualPorFactor(salarioBase: number, factorEdad: number)
 }
 
 export function calcDerived(input: ModalidadInputs): ModalidadDerived {
-  const semanasTotal = semanasCotizadasTotales(input.semanasActuales, input.semanasFaltantes);
-  const semanasExcedentes = semanasExcedentesDesdeCotizadas(semanasTotal);
+  const edadActual = Math.max(0, Number(input.edadActual));
+  const edadRetiroParaSemanas = Math.max(0, Number(input.edadRetiro));
+  const semanasActuales = Math.max(0, Math.round(Number(input.semanasActuales)));
+  const semanasDisponibles = Math.max(
+    0,
+    Math.round((edadRetiroParaSemanas - edadActual) * 52 * 2)
+  );
+  const semanasFaltantesDinamicas = Math.max(0, semanasDisponibles - semanasActuales);
+
+  const semanasTotal = semanasCotizadasTotales(semanasActuales, semanasFaltantesDinamicas);
+  // Excel: B11 = MAX(B4 - 500, 0), donde B4 = semanas cotizadas.
+  // En este modelo, B4 corresponde al total cotizado (actuales + faltantes).
+  const semanasCotizadas = semanasTotal;
+  const semanasExcedentes = semanasExcedentesDesdeCotizadas(semanasCotizadas);
   const numIncrementos = numeroIncrementosDesdeSemanasExcedentes(semanasExcedentes);
   const sueldo = input.sueldoPromedioMensual;
   const uma = input.umaMensual;
@@ -234,9 +247,10 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     input.factorImssVsNominal
   );
 
-  const edadRetiro = Math.min(65, Math.max(60, input.edadRetiro));
+  const edadRetiro = Number(input.edadRetiro);
   const factorEdad = factorEdadDesdeEdadRetiro(edadRetiro);
-  const aniosMod40 = aniosModalidad40(edadRetiro, input.edadInicioMod40);
+  const edadRetiroAcotada = Math.min(65, Math.max(60, edadRetiro));
+  const aniosMod40 = aniosModalidad40(edadRetiroAcotada, input.edadInicioMod40);
   const totalSalarioHistorial = totalSalarioHistorialImss(
     sueldoPagadoImssMensual,
     input.aniosConSueldoPromedio
@@ -299,6 +313,7 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
   const pensionConProyecto = nuevaPension;
 
   return {
+    semanasFaltantesCalculadas: semanasFaltantesDinamicas,
     semanasTotal,
     semanasExcedentes,
     numIncrementos,
