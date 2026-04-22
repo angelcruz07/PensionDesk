@@ -485,10 +485,6 @@ export function Modalidad40Calculator() {
                 value={formatCurrency(derived.pensionActual)}
               />
               <Out
-                label="Semanas excedentes"
-                value={formatInteger(derived.semanasExcedentes)}
-              />
-              <Out
                 label="Incremento salarial (referencia)"
                 value={formatPercentFromRate(derived.pctIncrementoSalarial)}
               />
@@ -527,6 +523,7 @@ export function Modalidad40Calculator() {
                 label="Semanas cotizadas faltantes"
                 value={formatInteger(derived.semanasFaltantesCalculadas)}
               />
+              <Out label="Semanas excedentes" value={formatInteger(derived.semanasExcedentes)} />
               <Out label="Veces UMA" value={formatNumber(derived.vecesUma, 1)} />
               <Out label="Rango UMA" value={derived.rangoUma} />
               <Out label="Valor UDI" value={formatNumber(s.valorUdi, 2)} />
