@@ -9,6 +9,8 @@ export type ModalidadInputs = {
   semanasActuales: number;
   semanasFaltantes: number;
   sueldoPromedioMensual: number;
+  /** Edad del trabajador al momento de la simulación (años). */
+  edadActual: number;
   edadRetiro: number;
   umaMensual: number;
   edadInicioMod40: number;
