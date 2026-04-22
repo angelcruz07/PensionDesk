@@ -298,10 +298,7 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     sueldoPagadoImssMensual
   );
 
-  const pensionActual =
-    salarioPromedio250 !== null
-      ? salarioPromedio250 * factorIncremento * factorEdad
-      : 0;
+  const pensionActual = sueldo * factorIncremento * factorEdad;
   const nuevaPension =
     salarioPromedio250 !== null
       ? salarioPromedio250 * factorIncremento * factorEdad
