@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useId, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useId, useState } from "react";
 import {
   Card,
   CardContent,
@@ -9,14 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -33,29 +25,71 @@ import { NumericField } from "./numeric-field";
 import {
   Activity,
   Calculator,
-  CalendarClock,
-  Landmark,
-  PiggyBank,
   RotateCcw,
-  Sliders,
   Sparkles,
-  TableProperties,
-  TrendingUp,
-  ChevronRight,
 } from "lucide-react";
+import { Out } from "./Out";
 
 /** Ancho fluido; paddings más ajustados en móvil (patrón dashboard shadcn). */
 const PAGE_WRAP =
   "mx-auto w-full max-w-screen-2xl px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 2xl:px-12";
 
-const PAGE_NAV = [
-  { id: "captura-datos", label: "Parámetros" },
-  { id: "resultados-escenario", label: "Resultado y escenario" },
-  { id: "plan-mod40", label: "Plan Modalidad 40" },
-  { id: "finanzas-proyeccion", label: "Finanzas y proyección" },
-] as const;
-
 const EDADES_RETIRO = [60, 61, 62, 63, 64, 65] as const;
+
+const EDADES_INICIO_MOD40 = [55, 56, 57, 58, 59, 60] as const;
+
+const ANIOS_MOD40 = [1, 2, 3, 4, 5] as const;
+
+/** Años en Mod. 40: siempre 1 a 5. */
+function AniosMod40Selector({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label
+        id={`${id}-label`}
+        className="text-muted-foreground block w-full text-sm font-medium leading-snug break-words"
+      >
+        {label}
+      </Label>
+      <div
+        id={`${id}-group`}
+        className="flex flex-wrap gap-1.5"
+        role="radiogroup"
+        aria-labelledby={`${id}-label`}
+      >
+        {ANIOS_MOD40.map((anios) => (
+          <Button
+            key={anios}
+            type="button"
+            variant={value === anios ? "default" : "outline"}
+            size="sm"
+            className="min-w-10 shrink-0 px-3"
+            onClick={() => onChange(anios)}
+            aria-checked={value === anios}
+            role="radio"
+            aria-label={
+              anios === 1 ? "1 año en Modalidad 40" : `${anios} años en Modalidad 40`
+            }
+          >
+            {anios}
+          </Button>
+        ))}
+      </div>
+      <p className="text-muted-foreground text-[11px] leading-relaxed">
+        Rango fijo: de 1 a 5 años en Modalidad 40.
+      </p>
+    </div>
+  );
+}
 
 function EdadRetiroSelector({
   id,
@@ -107,24 +141,51 @@ function EdadRetiroSelector({
   );
 }
 
-/** Enlaces compactos hacia secciones del panel principal. */
-function PageNavStrip() {
+function EdadInicioMod40Selector({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
   return (
-    <nav
-      className="bg-muted/40 flex flex-wrap gap-1 rounded-lg border border-border p-1.5"
-      aria-label="Ir a una sección"
-    >
-      {PAGE_NAV.map((item) => (
-        <a
-          key={item.id}
-          href={`#${item.id}`}
-          className="text-muted-foreground hover:bg-background hover:text-foreground inline-flex items-center gap-1 rounded-md border border-transparent px-2 py-1.5 text-[11px] font-medium transition-colors sm:px-2.5 xl:text-xs"
-        >
-          <ChevronRight className="size-3 shrink-0 opacity-40" aria-hidden />
-          {item.label}
-        </a>
-      ))}
-    </nav>
+    <div className="space-y-2">
+      <Label
+        id={`${id}-label`}
+        className="text-muted-foreground block w-full text-sm font-medium leading-snug break-words"
+      >
+        {label}
+      </Label>
+      <div
+        id={`${id}-group`}
+        className="flex flex-wrap gap-1.5"
+        role="radiogroup"
+        aria-labelledby={`${id}-label`}
+      >
+        {EDADES_INICIO_MOD40.map((edad) => (
+          <Button
+            key={edad}
+            type="button"
+            variant={value === edad ? "default" : "outline"}
+            size="sm"
+            className="min-w-10 shrink-0 px-3"
+            onClick={() => onChange(edad)}
+            aria-checked={value === edad}
+            role="radio"
+            aria-label={`${edad} años`}
+          >
+            {edad}
+          </Button>
+        ))}
+      </div>
+      <p className="text-muted-foreground text-[11px] leading-relaxed">
+        (Escenario Mod. 40) Debe ser menor o igual a la edad de retiro.
+      </p>
+    </div>
   );
 }
 
@@ -168,120 +229,7 @@ function Kpi({
   );
 }
 
-function Out({
-  label,
-  value,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div
-      className={cx(
-        "flex items-start justify-between gap-3 rounded-md border px-3 py-2.5 transition-colors sm:gap-4 sm:px-3.5",
-        emphasis
-          ? "border-primary/25 bg-muted/50"
-          : "border-border bg-muted/30"
-      )}
-    >
-      <p
-        className={cx(
-          "max-w-[75%] text-xs leading-snug font-medium",
-          emphasis ? "text-foreground" : "text-muted-foreground"
-        )}
-      >
-        {label}
-      </p>
-      <p className="shrink-0 text-right font-mono text-sm font-semibold tabular-nums tracking-tight text-foreground">
-        {value}
-      </p>
-    </div>
-  );
-}
 
-function FieldSection({
-  icon: Icon,
-  title,
-  description,
-  children,
-  accent = "primary",
-  id,
-  compact,
-}: {
-  icon: ComponentType<{ className?: string }>;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  accent?: "primary" | "violet" | "amber" | "emerald";
-  id?: string;
-  /** Una sola columna, paddings reducidos (panel lateral). */
-  compact?: boolean;
-}) {
-  const ring =
-    accent === "violet"
-      ? "ring-violet-500/10"
-      : accent === "amber"
-        ? "ring-amber-500/10"
-        : accent === "emerald"
-          ? "ring-emerald-500/10"
-          : "ring-primary/10";
-
-  const iconT =
-    accent === "violet"
-      ? "text-violet-600"
-      : accent === "amber"
-        ? "text-amber-700"
-        : accent === "emerald"
-          ? "text-emerald-700"
-          : "text-primary";
-
-  return (
-    <div
-      id={id}
-      className={cx(
-        "relative scroll-mt-24 rounded-lg border border-border bg-card shadow-sm",
-        compact ? "p-3 ring-1" : "p-3.5 ring-1 md:p-4",
-        ring
-      )}
-    >
-      <div className={cx("relative flex flex-col", compact ? "gap-3" : "gap-4 md:gap-5")}>
-        <div className="flex items-start gap-3">
-          <span
-            className={cx(
-              "bg-muted inline-flex shrink-0 items-center justify-center rounded-md border border-border",
-              compact ? "h-9 w-9" : "h-10 w-10"
-            )}
-          >
-            <Icon className={cx(compact ? "h-4 w-4" : "h-5 w-5", iconT)} aria-hidden />
-          </span>
-          <div className="min-w-0 pt-0.5">
-            <h3
-              className={cx(
-                "font-heading font-semibold tracking-tight",
-                compact ? "text-sm leading-snug" : "text-base"
-              )}
-            >
-              {title}
-            </h3>
-            {description ? (
-              <p
-                className={cx(
-                  "text-muted-foreground mt-1 leading-relaxed",
-                  compact ? "text-[11px]" : "text-sm"
-                )}
-              >
-                {description}
-              </p>
-            ) : null}
-          </div>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export function Modalidad40Calculator() {
   const baseId = useId();
@@ -300,10 +248,39 @@ export function Modalidad40Calculator() {
   /** No puede iniciar Modalidad 40 después de la edad de retiro (evita años negativos). */
   useEffect(() => {
     setS((p) => {
-      if (p.edadInicioMod40 <= p.edadRetiro) return p;
-      return { ...p, edadInicioMod40: p.edadRetiro };
+      const minEdad = 55;
+      const maxEdad = Math.min(60, p.edadRetiro);
+      const clamped = Math.min(maxEdad, Math.max(minEdad, Math.round(Number(p.edadInicioMod40))));
+      if (clamped === p.edadInicioMod40) return p;
+      return { ...p, edadInicioMod40: clamped };
     });
   }, [s.edadRetiro, s.edadInicioMod40]);
+
+  /** Cantidad de años Mod. 40 acotada a 1–5. */
+  useEffect(() => {
+    setS((p) => {
+      const v = Math.round(Number(p.cantidadAniosMod40));
+      if (!Number.isFinite(v)) {
+        return { ...p, cantidadAniosMod40: 1 };
+      }
+      const clamped = Math.min(5, Math.max(1, v));
+      if (clamped === p.cantidadAniosMod40) return p;
+      return { ...p, cantidadAniosMod40: clamped };
+    });
+  }, [s.cantidadAniosMod40]);
+
+  /** Semanas faltantes automáticas: del año en curso hasta la edad de retiro (52 semanas por año). */
+  useEffect(() => {
+    setS((p) => {
+      const edadActual = Math.max(0, Number(p.edadActual));
+      const edadRetiro = Math.max(0, Number(p.edadRetiro));
+      const semanasActuales = Math.max(0, Math.round(Number(p.semanasActuales)));
+      const semanasDisponibles = Math.max(0, Math.round((edadRetiro - edadActual) * 52));
+      const faltantes = Math.max(0, semanasDisponibles - semanasActuales);
+      if (faltantes === p.semanasFaltantes) return p;
+      return { ...p, semanasFaltantes: faltantes };
+    });
+  }, [s.edadActual, s.edadRetiro, s.semanasActuales, s.semanasFaltantes]);
 
   const derived = useMemo(() => calcDerived(s), [s]);
 
@@ -406,14 +383,7 @@ export function Modalidad40Calculator() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
-            <FieldSection
-              compact
-              id="bloque-parametros-unificados"
-              icon={Sliders}
-              title="Parámetros de entrada"
-              description="Captura distribuida en un solo bloque."
-              accent="primary"
-            >
+
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <NumericField
                   key={`${fk}-sa`}
@@ -421,16 +391,6 @@ export function Modalidad40Calculator() {
                   label="Semanas cotizadas actuales"
                   value={s.semanasActuales}
                   onChange={(v) => setS((p) => ({ ...p, semanasActuales: v }))}
-                  variant="integer"
-                  unit="sem"
-                  stepUpDown={{ step: 1, min: 0 }}
-                />
-                <NumericField
-                  key={`${fk}-sf`}
-                  id={`${baseId}-sf`}
-                  label="Semanas cotizadas faltantes"
-                  value={s.semanasFaltantes}
-                  onChange={(v) => setS((p) => ({ ...p, semanasFaltantes: v }))}
                   variant="integer"
                   unit="sem"
                   stepUpDown={{ step: 1, min: 0 }}
@@ -445,32 +405,40 @@ export function Modalidad40Calculator() {
                   maxFractionDigits={2}
                   stepUpDown={{ step: 100, min: 0 }}
                 />
-                <div className="md:col-span-2 xl:col-span-1">
-                  <EdadRetiroSelector
+                <NumericField
+                  key={`${fk}-ea`}
+                  id={`${baseId}-ea`}
+                  label="Edad actual"
+                  value={s.edadActual}
+                  onChange={(v) => setS((p) => ({ ...p, edadActual: v }))}
+                  variant="integer"
+                  unit="años"
+                  hint="Tu edad hoy (años cumplidos)."
+                  stepUpDown={{ step: 1, min: 18, max: 100 }}
+                />
+                   <EdadRetiroSelector
                     id={`${baseId}-ed`}
                     label="Edad de retiro"
                     value={s.edadRetiro}
                     onChange={(v) => setS((p) => ({ ...p, edadRetiro: v }))}
                   />
+                
+                <div id="plan-mod40" className="md:col-span-2 xl:col-span-3">
+                  <p className="text-muted-foreground rounded-md border border-dashed border-border/70 bg-muted/25 px-3 py-2 text-xs">
+                    Parámetros del escenario Modalidad 40.
+                  </p>
                 </div>
-                <NumericField
-                  key={`${fk}-uma`}
-                  id={`${baseId}-uma`}
-                  label="Valor UMA mensual"
-                  value={s.umaMensual}
-                  onChange={(v) => setS((p) => ({ ...p, umaMensual: v }))}
-                  variant="currency"
-                  maxFractionDigits={2}
-                  stepUpDown={{ step: 1, min: 0 }}
+                <EdadInicioMod40Selector
+                  id={`${baseId}-eim`}
+                  label="Edad inicio Modalidad 40"
+                  value={s.edadInicioMod40}
+                  onChange={(v) => setS((p) => ({ ...p, edadInicioMod40: v }))}
                 />
-                <NumericField
-                  key={`${fk}-fimss`}
-                  id={`${baseId}-fimss`}
-                  label="Factor IMSS vs salario nominal"
-                  value={s.factorImssVsNominal}
-                  onChange={(v) => setS((p) => ({ ...p, factorImssVsNominal: v }))}
-                  hint="Calibra para igualar tu Excel (ej. 33,84 ÷ salario de ejemplo)."
-                  stepUpDown={{ step: 0.05, min: 0 }}
+                <AniosMod40Selector
+                  id={`${baseId}-c40`}
+                  label="Cantidad de años Mod. 40"
+                  value={s.cantidadAniosMod40}
+                  onChange={(v) => setS((p) => ({ ...p, cantidadAniosMod40: v }))}
                 />
                 <NumericField
                   key={`${fk}-anhist`}
@@ -486,6 +454,7 @@ export function Modalidad40Calculator() {
                   key={`${fk}-s250`}
                   id={`${baseId}-s250`}
                   label="Salario prom. últimas 250 sem. IMSS (mensual)"
+                  className="md:col-span-2 xl:col-span-1"
                   value={s.salarioPromedio250ImssCaptura}
                   onChange={(v) => setS((p) => ({ ...p, salarioPromedio250ImssCaptura: v }))}
                   variant="currency"
@@ -494,22 +463,19 @@ export function Modalidad40Calculator() {
                   stepUpDown={{ step: 100, min: 0 }}
                 />
               </div>
-            </FieldSection>
               </CardContent>
             </Card>
           </section>
 
-          <PageNavStrip />
-
         <section id="resultados-escenario" className="scroll-mt-28 space-y-3 sm:space-y-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Datos calculados</h2>
+            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Calculo promedio actuarial ajustado</h2>
             <p className="text-muted-foreground text-sm">Resumen automático basado en los parámetros capturados.</p>
           </div>
-          <div className="grid gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 xl:grid-cols-3 lg:gap-6">
+          <div className="grid gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 lg:gap-6">
           <Card className="border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Resultado</CardTitle>
+              <CardTitle className="text-lg">Escenario normal sin  una estrategia financiera</CardTitle>
               <CardDescription>Situación actual sin el promedio combinado del proyecto.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -518,45 +484,42 @@ export function Modalidad40Calculator() {
                 label="Pensión estimada mensual"
                 value={formatCurrency(derived.pensionActual)}
               />
-              <Out
-                label="Semanas excedentes (sobre 500)"
-                value={formatInteger(derived.semanasExcedentes)}
-              />
-              <Out
-                label="Incremento salarial (referencia)"
-                value={formatPercentFromRate(derived.pctIncrementoSalarial)}
-              />
             </CardContent>
           </Card>
 
           <Card className="border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Escenario Modalidad 40</CardTitle>
+              <CardTitle className="text-lg">Escenario con una estrategia financiera para modalidad 40</CardTitle>
               <CardDescription>Comparativo frente al escenario base.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Out
-                label={
-                  derived.usaSalario250ImssManual
-                    ? "Salario prom. 250 sem. (IMSS capturado)"
-                    : "Salario prom. 250 sem. (modelo combinado)"
-                }
-                value={formatCurrency(derived.salarioPromedio250)}
-              />
               <Out emphasis label="Nueva pensión" value={formatCurrency(derived.nuevaPension)} />
               <Out label="Diferencia vs. pensión actual" value={formatCurrency(derived.diferencia)} />
             </CardContent>
           </Card>
+
+          </div>
 
           <Card className="border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">Resumen de cálculos automáticos</CardTitle>
               <CardDescription>Valores derivados para referencia rápida.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <Out label="Semanas cotizadas (total)" value={formatInteger(derived.semanasTotal)} />
-              <Out label="Veces UMA (salario ÷ UMA)" value={formatNumber(derived.vecesUma, 1)} />
+              <Out
+                label="Semanas cotizadas faltantes"
+                value={formatInteger(derived.semanasFaltantesCalculadas)}
+              />
+              <Out label="Semanas excedentes" value={formatInteger(derived.semanasExcedentes)} />
+              <Out label="Veces UMA" value={formatNumber(derived.vecesUma, 1)} />
               <Out label="Rango UMA" value={derived.rangoUma} />
+              <Out label="Valor UDI" value={formatNumber(s.valorUdi, 2)} />
+              <Out label="Valor UMA mensual" value={formatCurrency(s.umaMensual)} />
+              <Out
+                label="Factor IMSS vs salario nominal"
+                value={formatNumber(s.factorImssVsNominal, 3)}
+              />
               <Out
                 label="Incremento salarial anual"
                 value={formatPercentFromRate(derived.pctIncrementoSalarial)}
@@ -574,7 +537,6 @@ export function Modalidad40Calculator() {
               />
             </CardContent>
           </Card>
-          </div>
         </section>
 
         <section className="space-y-3 sm:space-y-4">
@@ -582,64 +544,6 @@ export function Modalidad40Calculator() {
             <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Cálculo Modalidad 40</h2>
             <p className="text-muted-foreground text-sm">Proyección, finanzas y desglose del escenario.</p>
           </div>
-
-        <Card
-          id="plan-mod40"
-          className="scroll-mt-28 overflow-hidden border-border shadow-sm"
-        >
-          <CardHeader className="gap-1 border-b border-border bg-muted/40 pb-4 sm:pb-5">
-            <div className="flex items-center gap-2">
-              <span className="bg-muted text-amber-800 inline-flex h-9 w-9 items-center justify-center rounded-md border border-border sm:h-10 sm:w-10">
-                <TrendingUp className="h-5 w-5" aria-hidden />
-              </span>
-              <div>
-                <CardTitle className="text-lg">Ahorro Modalidad 40 / Plan</CardTitle>
-                <CardDescription>Plazos y montos del proyecto.</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-5 md:pt-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              <EdadRetiroSelector
-                id={`${baseId}-eir`}
-                label="Edad de retiro (plan)"
-                value={s.edadRetiro}
-                onChange={(v) => setS((p) => ({ ...p, edadRetiro: v }))}
-                showHint={false}
-              />
-              <NumericField
-                key={`${fk}-eim`}
-                id={`${baseId}-eim`}
-                label="Edad inicio Modalidad 40"
-                value={s.edadInicioMod40}
-                onChange={(v) => setS((p) => ({ ...p, edadInicioMod40: v }))}
-                variant="integer"
-                unit="años"
-                hint="Debe ser menor o igual a la edad de retiro."
-                stepUpDown={{
-                  step: 1,
-                  min: 57,
-                  max: Math.min(100, s.edadRetiro),
-                }}
-              />
-              <NumericField
-                key={`${fk}-c40`}
-                id={`${baseId}-c40`}
-                label="Cantidad de años Mod. 40"
-                value={s.cantidadAniosMod40}
-                onChange={(v) => setS((p) => ({ ...p, cantidadAniosMod40: v }))}
-                variant="integer"
-              />
-              <NumericField
-                key={`${fk}-vudi`}
-                id={`${baseId}-vudi`}
-                label="Valor UDI"
-                value={s.valorUdi}
-                onChange={(v) => setS((p) => ({ ...p, valorUdi: v }))}
-              />
-            </div>
-          </CardContent>
-        </Card>
 
         <div id="finanzas-proyeccion" className="scroll-mt-28">
           <Card className="border-border shadow-sm">
@@ -649,11 +553,11 @@ export function Modalidad40Calculator() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Out
-                label="Pago al IMSS (18.8% de salario 250)"
+                label="Pago al IMSS"
                 value={formatCurrency(derived.pagoImss)}
               />
               <Out
-                label="Pago anual normal (Pago al IMSS × 12)"
+                label="Pago anual normal)"
                 value={formatCurrency(derived.pagoAnualNormal)}
               />
               <Out
@@ -663,7 +567,7 @@ export function Modalidad40Calculator() {
                 }
               />
               <Out
-                label="Pago total de UDIs (UDIs × años en Mod. 40)"
+                label="Pago total de UDIs "
                 value={
                   derived.pagoTotalUdisModalidad === null
                     ? "—"
@@ -703,86 +607,6 @@ export function Modalidad40Calculator() {
             </CardContent>
           </Card>
         </div>
-
-        <Card
-          id="tabla-250"
-          className="scroll-mt-28 overflow-hidden border-border shadow-sm"
-        >
-          <CardHeader className="gap-1 border-b border-border bg-muted/40 pb-4 sm:pb-5">
-            <div className="flex items-center gap-2">
-              <span className="bg-muted text-primary inline-flex h-9 w-9 items-center justify-center rounded-md border border-border sm:h-10 sm:w-10">
-                <TableProperties className="h-5 w-5" aria-hidden />
-              </span>
-              <div>
-                <CardTitle className="text-lg">250 semanas cotizadas</CardTitle>
-                <CardDescription>
-                  Desglose actual. Si capturaste el salario IMSS arriba, sustituye al promedio
-                  combinado del modelo para la pensión estimada.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-5 md:pt-6">
-            <div className="overflow-x-auto rounded-lg border border-border bg-muted/20">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-border/60 bg-muted/45 hover:bg-muted/45">
-                    <TableHead className="font-semibold">Concepto</TableHead>
-                    <TableHead className="text-right font-semibold">Valor</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
-                    <TableCell className="py-3 pr-4">Salario promedio mensual</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                      {formatCurrency(s.sueldoPromedioMensual)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
-                    <TableCell className="py-3 pr-4">Salario promedio anual</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                      {formatCurrency(derived.salarioPromedioAnual)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
-                    <TableCell className="py-3 pr-4">Años con sueldo promedio</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                      {formatInteger(s.aniosConSueldoPromedio)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
-                    <TableCell className="py-3 pr-4">
-                      Salario prom. 250 sem. IMSS (captura, mensual)
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                      {s.salarioPromedio250ImssCaptura > 0
-                        ? formatCurrency(s.salarioPromedio250ImssCaptura)
-                        : "—"}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
-                    <TableCell className="py-3 pr-4">Salario IMSS combinado (modelo)</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                      {formatCurrency(derived.salarioPromedioImssCombinado)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="border-border/50 odd:bg-muted/20 even:bg-transparent">
-                    <TableCell className="py-3 pr-4">Años con Mod. 40</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                      {formatNumber(derived.aniosMod40, 0)}
-                    </TableCell>
-                  </TableRow>
-                  <TableRow className="odd:bg-muted/20">
-                    <TableCell className="py-3 pr-4">Sueldo promedio pagado al IMSS</TableCell>
-                    <TableCell className="text-right font-mono text-sm font-semibold tabular-nums">
-                      {formatCurrency(derived.sueldoPagadoImssMensual)}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
         </section>
         </div>
       </main>
