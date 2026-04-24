@@ -269,13 +269,13 @@ export function Modalidad40Calculator() {
     });
   }, [s.cantidadAniosMod40]);
 
-  /** Semanas faltantes automáticas: horizonte doble (10 años equivalentes). */
+  /** Semanas faltantes automáticas: del año en curso hasta la edad de retiro (52 semanas por año). */
   useEffect(() => {
     setS((p) => {
       const edadActual = Math.max(0, Number(p.edadActual));
       const edadRetiro = Math.max(0, Number(p.edadRetiro));
       const semanasActuales = Math.max(0, Math.round(Number(p.semanasActuales)));
-      const semanasDisponibles = Math.max(0, Math.round((edadRetiro - edadActual) * 52 * 2));
+      const semanasDisponibles = Math.max(0, Math.round((edadRetiro - edadActual) * 52));
       const faltantes = Math.max(0, semanasDisponibles - semanasActuales);
       if (faltantes === p.semanasFaltantes) return p;
       return { ...p, semanasFaltantes: faltantes };
@@ -484,10 +484,6 @@ export function Modalidad40Calculator() {
                 label="Pensión estimada mensual"
                 value={formatCurrency(derived.pensionActual)}
               />
-              <Out
-                label="Incremento salarial (referencia)"
-                value={formatPercentFromRate(derived.pctIncrementoSalarial)}
-              />
             </CardContent>
           </Card>
 
@@ -497,14 +493,6 @@ export function Modalidad40Calculator() {
               <CardDescription>Comparativo frente al escenario base.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Out
-                label={
-                  derived.usaSalario250ImssManual
-                    ? "Salario prom. 250 sem. (IMSS capturado)"
-                    : "Salario prom. 250 sem. (modelo combinado)"
-                }
-                value={formatCurrency(derived.salarioPromedio250)}
-              />
               <Out emphasis label="Nueva pensión" value={formatCurrency(derived.nuevaPension)} />
               <Out label="Diferencia vs. pensión actual" value={formatCurrency(derived.diferencia)} />
             </CardContent>
