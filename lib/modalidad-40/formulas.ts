@@ -40,7 +40,7 @@ export type ModalidadDerived = {
   salarioPromedioAnual: number;
   sueldoPagadoImssMensual: number;
   aniosMod40: number;
-  salarioPromedio250: number | null;
+  salarioPromedio250: number;
   pagoImss: number | null;
   pagoAnualNormal: number;
   /** UDIs = pago anual normal ÷ valor UDI. */
@@ -49,11 +49,11 @@ export type ModalidadDerived = {
   pagoTotalUdisModalidad: number | null;
   pagoModalidad40Total: number;
   pensionActual: number;
-  nuevaPension: number | null;
-  diferencia: number | null;
+  nuevaPension: number;
+  diferencia: number;
   salarioPromedioImssCombinado: number | null;
   promedioSalario: number | null;
-  pensionConProyecto: number | null;
+  pensionConProyecto: number;
   totalSalarioHistorial: number;
   salarioIncrementadoMod40: number | null;
   sumaAmbosSalarios: number;
@@ -221,7 +221,7 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
   const semanasActuales = Math.max(0, Math.round(Number(input.semanasActuales)));
   const semanasDisponibles = Math.max(
     0,
-    Math.round((edadRetiroParaSemanas - edadActual) * 52 * 2)
+    Math.round((edadRetiroParaSemanas - edadActual) * 52)
   );
   const semanasFaltantesDinamicas = Math.max(0, semanasDisponibles - semanasActuales);
 
@@ -273,14 +273,16 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
   );
 
   const usaSalario250ImssManual = input.salarioPromedio250ImssCaptura > EPS;
-  const baseSalarioParaPension = usaSalario250ImssManual
+  /**
+   * Salario mensual de referencia IMSS (últimas 250 semanas o equivalente):
+   * captura manual, promedio combinado del escenario, o estimación vía sueldo declarado al IMSS.
+   */
+  const salarioMensual250Imss: number = usaSalario250ImssManual
     ? input.salarioPromedio250ImssCaptura
-    : salarioPromedioImssCombinadoVal;
+    : (salarioPromedioImssCombinadoVal ?? sueldoPagadoImssMensual);
 
-  const salarioPromedio250 =
-    usaSalario250ImssManual
-      ? input.salarioPromedio250ImssCaptura
-      : salarioPromedioImssCombinadoVal;
+  const baseSalarioParaPension: number = salarioMensual250Imss;
+  const salarioPromedio250: number = salarioMensual250Imss;
   const pagoImss = pagoImssDesdeSalario250(salarioPromedio250);
   const pagoAnualNormal = pagoAnualDesdePagoImss(pagoImss);
   const udis = divisionSegura(pagoAnualNormal, input.valorUdi);
@@ -298,15 +300,14 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     sueldoPagadoImssMensual
   );
 
+  /** Escenario “sin estrategia”: factores × sueldo nominal. */
   const pensionActual = sueldo * factorIncremento * factorEdad;
-  const nuevaPension =
-    salarioPromedio250 !== null
-      ? salarioPromedio250 * factorIncremento * factorEdad
-      : null;
-
-  const diferencia =
-    nuevaPension !== null ? nuevaPension - pensionActual : null;
-
+  /**
+   * Nueva pensión (escenario con base IMSS 250 o promedio del proyecto):
+   * salario mensual 250 sem. IMSS × factor incremento × factor edad.
+   */
+  const nuevaPension = salarioMensual250Imss * factorIncremento * factorEdad;
+  const diferencia = nuevaPension - pensionActual;
   const pensionConProyecto = nuevaPension;
 
   return {
