@@ -113,8 +113,10 @@ export function SubscriptionCard({
     }));
   }, []);
 
+  const sessionUserId = session?.user?.id;
+
   const refreshSubscriptions = useCallback(async () => {
-    if (!session?.user) {
+    if (sessionUserId == null) {
       setActiveSub(null);
       setExpiredEssentialPlan(false);
       return;
@@ -145,7 +147,7 @@ export function SubscriptionCard({
     const isExpired = isEssentialPlanExpired(first);
     setExpiredEssentialPlan(isExpired);
     setActiveSub(isExpired ? null : first);
-  }, [session?.user]);
+  }, [sessionUserId]);
 
   useEffect(() => {
     void refreshSubscriptions();
