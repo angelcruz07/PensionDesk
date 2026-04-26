@@ -285,11 +285,7 @@ export function Modalidad40Calculator() {
   const derived = useMemo(() => calcDerived(s), [s]);
 
   const diffTone =
-    derived.diferencia === null
-      ? ("default" as const)
-      : derived.diferencia >= -1e-6
-        ? ("positive" as const)
-        : ("warning" as const);
+    derived.diferencia >= -1e-6 ? ("positive" as const) : ("warning" as const);
 
   function handleReset() {
     setS(cloneDefaultModalidadInputs());
@@ -359,7 +355,7 @@ export function Modalidad40Calculator() {
               />
               <Kpi
                 title="Diferencia"
-                value={derived.diferencia === null ? "—" : formatCurrency(derived.diferencia)}
+                value={formatCurrency(derived.diferencia)}
                 subtitle="Escenario − actual"
                 tone={diffTone}
               />
