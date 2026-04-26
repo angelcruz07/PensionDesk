@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { unstable_noStore as noStore } from "next/cache";
+import { headers } from "next/headers";
 import {
   Card,
   CardContent,
@@ -13,7 +15,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { KeyRound, UserRound } from "lucide-react";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { SubscriptionCard } from "./_components/subscription-card";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Configuración · Pensión Desk",
@@ -29,6 +35,29 @@ export default async function ConfiguracionPage({
 }: {
   searchParams?: Promise<{ planRequired?: string; error?: string }>;
 }) {
+  noStore();
+  const session = await auth.api.getSession({ headers: await headers() });
+  let serverSubscription: {
+    plan: string;
+    status: string;
+    createdAt: string;
+    periodEnd: string | null;
+  } | null = null;
+  if (session?.user) {
+    const row = await prisma.subscription.findFirst({
+      where: { referenceId: session.user.id },
+      orderBy: { createdAt: "desc" },
+      select: { plan: true, status: true, createdAt: true, periodEnd: true },
+    });
+    if (row) {
+      serverSubscription = {
+        plan: row.plan,
+        status: row.status,
+        createdAt: row.createdAt.toISOString(),
+        periodEnd: row.periodEnd ? row.periodEnd.toISOString() : null,
+      };
+    }
+  }
   const resolvedSearchParams = await searchParams;
   const forcePlanSelection = resolvedSearchParams?.planRequired === "1";
   const accessError = resolvedSearchParams?.error;
@@ -100,7 +129,11 @@ export default async function ConfiguracionPage({
           </CardFooter>
         </Card>
 
-        <SubscriptionCard forcePlanSelection={forcePlanSelection} accessError={accessError} />
+        <SubscriptionCard
+          forcePlanSelection={forcePlanSelection}
+          accessError={accessError}
+          serverSubscription={serverSubscription}
+        />
 
         <Card className="min-w-0 border-border shadow-sm xl:col-span-2">
           <CardHeader className="space-y-1">

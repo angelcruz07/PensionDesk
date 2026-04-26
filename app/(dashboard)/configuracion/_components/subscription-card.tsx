@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, AlertTriangle, CreditCard } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { ESSENTIAL_PLAN_NAME, isEssentialPlanExpired, normalizePlanName } from "@/lib/essential-plan";
 import { subscriptionPlans as subscriptionPlansConfig } from "@/lib/subscription-plans";
 
 const subscriptionPlans = [
@@ -50,8 +51,15 @@ type ActiveSub = {
 
 type AccessErrorCode = "expired_essential" | "payment_issue" | "no_plan";
 
-const ESSENTIAL_PLAN_NAME = "plan esencial";
-const ESSENTIAL_PLAN_DURATION_MS = 48 * 60 * 60 * 1000;
+/** Snapshot desde Prisma (Server Component) para primer pintado y coherencia tras Checkout. */
+export type ServerSubscriptionSnapshot = {
+  plan: string;
+  status: string;
+  createdAt: string;
+  periodEnd: string | null;
+} | null;
+
+const ESSENTIAL_PLAN_DISPLAY = "Plan Esencial";
 
 function titleCasePlan(plan: string) {
   return plan
@@ -61,8 +69,12 @@ function titleCasePlan(plan: string) {
     .join(" ");
 }
 
-function statusLabel(status: string) {
+function statusLabel(status: string, plan?: string) {
   const s = status.toLowerCase();
+  const planLower = (plan ?? "").toLowerCase();
+  if (s === "incomplete" && planLower === ESSENTIAL_PLAN_DISPLAY.toLowerCase()) {
+    return "Prueba gratuita (48 h)";
+  }
   if (s === "active") return "Activo";
   if (s === "trialing") return "Periodo de prueba";
   if (s === "past_due") return "Pago vencido";
@@ -78,26 +90,70 @@ function formatRenewal(periodEnd: string | Date | null | undefined) {
   return d.toLocaleDateString("es-ES", { dateStyle: "long" });
 }
 
-function isEssentialPlanExpired(sub: ActiveSub) {
-  if (sub.plan.toLowerCase() !== ESSENTIAL_PLAN_NAME) return false;
-  if (sub.createdAt == null) return true;
-  const createdAtDate = typeof sub.createdAt === "string" ? new Date(sub.createdAt) : sub.createdAt;
-  if (Number.isNaN(createdAtDate.getTime())) return true;
-  return Date.now() - createdAtDate.getTime() > ESSENTIAL_PLAN_DURATION_MS;
+function toActiveSub(s: ServerSubscriptionSnapshot | undefined): ActiveSub | null {
+  if (s == null) return null;
+  return {
+    plan: s.plan,
+    status: s.status,
+    createdAt: s.createdAt,
+    periodEnd: s.periodEnd,
+  };
+}
+
+function sortSubsNewestFirst(list: ActiveSub[]): ActiveSub[] {
+  return [...list].sort((a, b) => {
+    const ta =
+      a.createdAt == null
+        ? 0
+        : typeof a.createdAt === "string"
+          ? new Date(a.createdAt).getTime()
+          : a.createdAt.getTime();
+    const tb =
+      b.createdAt == null
+        ? 0
+        : typeof b.createdAt === "string"
+          ? new Date(b.createdAt).getTime()
+          : b.createdAt.getTime();
+    return tb - ta;
+  });
+}
+
+function applySubscriptionRow(
+  first: ActiveSub | undefined,
+  setActiveSub: (v: ActiveSub | null) => void,
+  setExpiredEssential: (v: boolean) => void,
+) {
+  if (!first) {
+    setActiveSub(null);
+    setExpiredEssential(false);
+    return;
+  }
+  const isExpired = isEssentialPlanExpired(first);
+  setExpiredEssential(isExpired);
+  setActiveSub(isExpired ? null : first);
 }
 
 export function SubscriptionCard({
   forcePlanSelection = false,
   accessError,
+  serverSubscription = null,
 }: {
   forcePlanSelection?: boolean;
   accessError?: string;
+  serverSubscription?: ServerSubscriptionSnapshot;
 }) {
   const router = useRouter();
   const { data: session, isPending: sessionPending } = authClient.useSession();
-  const [activeSub, setActiveSub] = useState<ActiveSub | null>(null);
-  const [expiredEssentialPlan, setExpiredEssentialPlan] = useState(false);
-  const [listPending, setListPending] = useState(false);
+  const [activeSub, setActiveSub] = useState<ActiveSub | null>(() => {
+    const a = toActiveSub(serverSubscription);
+    if (!a) return null;
+    return isEssentialPlanExpired(a) ? null : a;
+  });
+  const [expiredEssentialPlan, setExpiredEssentialPlan] = useState(() => {
+    const a = toActiveSub(serverSubscription);
+    return a ? isEssentialPlanExpired(a) : false;
+  });
+  const [listPending, setListPending] = useState(!serverSubscription);
   const [listError, setListError] = useState<string | null>(null);
   const [portalPending, setPortalPending] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
@@ -117,13 +173,11 @@ export function SubscriptionCard({
     if (!session?.user) {
       setActiveSub(null);
       setExpiredEssentialPlan(false);
+      setListPending(false);
       return;
     }
-    setListPending(true);
     setListError(null);
-    setExpiredEssentialPlan(false);
     const { data, error } = await authClient.subscription.list();
-    setListPending(false);
     if (error) {
       const detail =
         error.message ||
@@ -131,25 +185,67 @@ export function SubscriptionCard({
           ? `Error ${error.status}`
           : null);
       setListError(detail ?? "No se pudo cargar la suscripción.");
+      setListPending(false);
       setActiveSub(null);
       return;
     }
-    const list = Array.isArray(data) ? data : [];
+    const list = sortSubsNewestFirst(Array.isArray(data) ? (data as ActiveSub[]) : []);
     const first = list[0] as ActiveSub | undefined;
     if (!first) {
       setActiveSub(null);
       setExpiredEssentialPlan(false);
-      return;
+      setListPending(false);
+    } else {
+      // Regla de negocio: Plan Esencial solo dura 48 horas desde su creación.
+      applySubscriptionRow(first, setActiveSub, setExpiredEssentialPlan);
+      setListPending(false);
     }
-    // Regla de negocio: Plan Esencial solo dura 48 horas desde su creación.
-    const isExpired = isEssentialPlanExpired(first);
-    setExpiredEssentialPlan(isExpired);
-    setActiveSub(isExpired ? null : first);
-  }, [session?.user]);
+    router.refresh();
+  }, [session?.user, router]);
+
+  const serverKey = serverSubscription
+    ? `${serverSubscription.plan}:${serverSubscription.createdAt}`
+    : "none";
+
+  useLayoutEffect(() => {
+    if (serverSubscription) {
+      applySubscriptionRow(
+        toActiveSub(serverSubscription) ?? undefined,
+        setActiveSub,
+        setExpiredEssentialPlan,
+      );
+      setListPending(false);
+    }
+  }, [serverKey, serverSubscription]);
 
   useEffect(() => {
     void refreshSubscriptions();
   }, [refreshSubscriptions]);
+
+  const serverSub = toActiveSub(serverSubscription);
+  const serverSaysEssentialStillValid = Boolean(
+    serverSub && normalizePlanName(serverSub.plan) === ESSENTIAL_PLAN_NAME && !isEssentialPlanExpired(serverSub),
+  );
+  /** Fila a mostrar: el cliente o, si aún no llegó, el snapshot del servidor (misma carga de Stripe). */
+  const displaySub: ActiveSub | null = (() => {
+    if (activeSub != null) return activeSub;
+    if (serverSub == null) return null;
+    if (normalizePlanName(serverSub.plan) === ESSENTIAL_PLAN_NAME) {
+      return isEssentialPlanExpired(serverSub) ? null : serverSub;
+    }
+    return serverSub;
+  })();
+
+  const subscriptionBodyLoading =
+    (sessionPending && !serverSubscription) ||
+    (Boolean(session?.user) && listPending && !serverSubscription);
+  const showEssentialExpiredNotice =
+    expiredEssentialPlan && !serverSaysEssentialStillValid && !subscriptionBodyLoading;
+  const showActive = Boolean(
+    session?.user && displaySub && !subscriptionBodyLoading,
+  );
+  const showPlans =
+    Boolean(session?.user) && !subscriptionBodyLoading && !displaySub && plansForUi.length > 0;
 
   const handleBillingPortal = async () => {
     setPortalPending(true);
@@ -173,6 +269,28 @@ export function SubscriptionCard({
     }
     setCheckoutPlan(planName);
     setListError(null);
+    const needResetForEssentialRebuy =
+      planName === ESSENTIAL_PLAN_DISPLAY &&
+      expiredEssentialPlan &&
+      (serverSub == null || isEssentialPlanExpired(serverSub));
+    if (needResetForEssentialRebuy) {
+      const res = await fetch("/api/subscription/reset-expired-essential", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        let msg = "No se pudo preparar la renovación del Plan Esencial.";
+        try {
+          const body = (await res.json()) as { error?: string };
+          if (body.error) msg = body.error;
+        } catch {
+          /* ignore */
+        }
+        setCheckoutPlan(null);
+        setListError(msg);
+        return;
+      }
+    }
     const { error } = await authClient.subscription.upgrade({
       plan: planName,
       successUrl: "/configuracion",
@@ -183,10 +301,6 @@ export function SubscriptionCard({
       setListError(error.message ?? "No se pudo iniciar el checkout.");
     }
   };
-
-  const showActive = Boolean(session?.user && activeSub && !listPending);
-  const showPlans =
-    Boolean(session?.user) && !listPending && !activeSub && plansForUi.length > 0;
 
   const normalizedAccessError = (accessError ?? "").toLowerCase();
   const redirectErrorCode: AccessErrorCode =
@@ -243,14 +357,14 @@ export function SubscriptionCard({
         {listError ? (
           <p className="text-destructive text-xs leading-relaxed">{listError}</p>
         ) : null}
-        {expiredEssentialPlan ? (
+        {showEssentialExpiredNotice ? (
           <p className="text-amber-700 text-xs leading-relaxed">
             Tu Plan Esencial expiró porque superó las 48 horas desde su activación. Puedes
             suscribirte nuevamente o cambiar a un plan recurrente.
           </p>
         ) : null}
 
-        {sessionPending || (session?.user && listPending) ? (
+        {subscriptionBodyLoading ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="min-w-0 space-y-2">
               <Label htmlFor="cfg-plan">Plan</Label>
@@ -267,7 +381,7 @@ export function SubscriptionCard({
           </div>
         ) : null}
 
-        {showActive && activeSub ? (
+        {showActive && displaySub ? (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="min-w-0 space-y-2">
@@ -275,7 +389,7 @@ export function SubscriptionCard({
                 <Input
                   id="cfg-plan"
                   readOnly
-                  value={titleCasePlan(activeSub.plan)}
+                  value={titleCasePlan(displaySub.plan)}
                   className="h-10 w-full bg-muted/40"
                 />
               </div>
@@ -284,7 +398,7 @@ export function SubscriptionCard({
                 <Input
                   id="cfg-estado"
                   readOnly
-                  value={statusLabel(activeSub.status)}
+                  value={statusLabel(displaySub.status, displaySub.plan)}
                   className="h-10 w-full bg-muted/40"
                 />
               </div>
@@ -294,7 +408,7 @@ export function SubscriptionCard({
               <Input
                 id="cfg-renovacion"
                 readOnly
-                value={formatRenewal(activeSub.periodEnd)}
+                value={formatRenewal(displaySub.periodEnd)}
                 className="h-10 w-full bg-muted/40"
               />
             </div>

@@ -1,12 +1,18 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { Modalidad40Calculator } from "@/app/_components/modalidad-40-calculator";
 import { auth } from "@/lib/auth";
+import {
+  ESSENTIAL_PLAN_NAME,
+  isEssentialPlanExpired,
+  normalizePlanName,
+} from "@/lib/essential-plan";
 import { prisma } from "@/lib/prisma";
 
-const ESSENTIAL_PLAN_NAME = "plan esencial";
+export const dynamic = "force-dynamic";
+
 const RECURRING_PLANS = new Set(["plan profesional", "plan despacho"]);
-const ESSENTIAL_PLAN_DURATION_MS = 48 * 60 * 60 * 1000;
 const SUCCESS_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
 const BLOCKED_SUBSCRIPTION_STATUSES = new Set([
   "canceled",
@@ -24,17 +30,6 @@ type ActiveSubscription = {
   periodEnd?: string | Date | null;
 };
 
-function isEssentialPlanExpired(subscription: ActiveSubscription) {
-  if (subscription.plan.toLowerCase() !== ESSENTIAL_PLAN_NAME) return false;
-  if (subscription.createdAt == null) return true;
-  const createdAtDate =
-    typeof subscription.createdAt === "string"
-      ? new Date(subscription.createdAt)
-      : subscription.createdAt;
-  if (Number.isNaN(createdAtDate.getTime())) return true;
-  return Date.now() - createdAtDate.getTime() > ESSENTIAL_PLAN_DURATION_MS;
-}
-
 function hasFuturePeriodEnd(subscription: ActiveSubscription) {
   if (subscription.periodEnd == null) return false;
   const periodEndDate =
@@ -45,43 +40,25 @@ function hasFuturePeriodEnd(subscription: ActiveSubscription) {
   return periodEndDate.getTime() > Date.now();
 }
 
-function hasCalculatorAccess(subscription: ActiveSubscription) {
-  const normalizedPlan = subscription.plan.toLowerCase();
+/** Solo Profesional / Despacho: estados y periodEnd; no aplica a Plan Esencial. */
+function hasRecurringPlanAccess(subscription: ActiveSubscription) {
   const normalizedStatus = subscription.status.toLowerCase();
-
-  if (normalizedPlan === ESSENTIAL_PLAN_NAME) {
-    return !isEssentialPlanExpired(subscription);
-  }
-
-  if (!RECURRING_PLANS.has(normalizedPlan)) return false;
   if (BLOCKED_SUBSCRIPTION_STATUSES.has(normalizedStatus)) return false;
   if (SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus)) return true;
   return hasFuturePeriodEnd(subscription);
 }
 
-function getAccessErrorCode(subscription: ActiveSubscription | null) {
-  if (!subscription) return "no_plan";
-
-  const normalizedPlan = subscription.plan.toLowerCase();
+function getRecurringAccessErrorCode(subscription: ActiveSubscription) {
   const normalizedStatus = subscription.status.toLowerCase();
-
-  if (normalizedPlan === ESSENTIAL_PLAN_NAME && isEssentialPlanExpired(subscription)) {
-    return "expired_essential";
+  if (BLOCKED_SUBSCRIPTION_STATUSES.has(normalizedStatus)) return "payment_issue";
+  if (!SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus) && !hasFuturePeriodEnd(subscription)) {
+    return "payment_issue";
   }
-
-  if (RECURRING_PLANS.has(normalizedPlan)) {
-    if (BLOCKED_SUBSCRIPTION_STATUSES.has(normalizedStatus)) {
-      return "payment_issue";
-    }
-    if (!SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus) && !hasFuturePeriodEnd(subscription)) {
-      return "payment_issue";
-    }
-  }
-
   return "no_plan";
 }
 
 export default async function CalculadoraPage() {
+  noStore();
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -100,9 +77,27 @@ export default async function CalculadoraPage() {
       periodEnd: true,
     },
   })) as ActiveSubscription | null;
-  if (!activeSubscription || !hasCalculatorAccess(activeSubscription)) {
-    const error = getAccessErrorCode(activeSubscription);
-    redirect(`/configuracion?planRequired=1&error=${error}`);
+
+  if (!activeSubscription) {
+    redirect("/configuracion?planRequired=1&error=no_plan");
   }
-  return <Modalidad40Calculator />;
+
+  const plan = normalizePlanName(activeSubscription.plan);
+
+  if (plan === ESSENTIAL_PLAN_NAME) {
+    if (isEssentialPlanExpired(activeSubscription)) {
+      redirect("/configuracion?planRequired=1&error=expired_essential");
+    }
+    return <Modalidad40Calculator />;
+  }
+
+  if (RECURRING_PLANS.has(plan)) {
+    if (!hasRecurringPlanAccess(activeSubscription)) {
+      const error = getRecurringAccessErrorCode(activeSubscription);
+      redirect(`/configuracion?planRequired=1&error=${error}`);
+    }
+    return <Modalidad40Calculator />;
+  }
+
+  redirect("/configuracion?planRequired=1&error=no_plan");
 }

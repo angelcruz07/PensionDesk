@@ -4,8 +4,12 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Comprobación optimista por cookie. La sesión real se valida en
  * `app/(dashboard)/layout.tsx` con `auth.api.getSession`.
+ *
+ * En Next.js 16 el archivo debe exportar la función con nombre `proxy` (no solo
+ * `default`); de lo contrario el runtime puede dejar de reconocer el adaptador
+ * y fallar con "adapterFn is not a function".
  */
-export default function proxy(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const hasSessionCookie = Boolean(getSessionCookie(request));
 
