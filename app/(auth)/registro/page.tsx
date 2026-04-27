@@ -14,7 +14,7 @@ export default async function RegistroPage() {
     headers: await headers(),
   });
   if (session) {
-    redirect("/calculadora");
+    redirect("/seleccionar-plan");
   }
 
   return <RegistroForm />;

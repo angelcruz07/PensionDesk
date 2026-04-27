@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -15,7 +15,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertCircle, AlertTriangle, CreditCard } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { ESSENTIAL_PLAN_NAME, isEssentialPlanExpired, normalizePlanName } from "@/lib/essential-plan";
+import {
+  ESSENTIAL_PLAN_DURATION_MS,
+  ESSENTIAL_PLAN_NAME,
+  isEssentialPlanExpired,
+  normalizePlanName,
+} from "@/lib/essential-plan";
 import { subscriptionPlans as subscriptionPlansConfig } from "@/lib/subscription-plans";
 
 const subscriptionPlans = [
@@ -94,6 +99,24 @@ function formatRenewal(periodEnd: string | Date | null | undefined) {
   return d.toLocaleDateString("es-ES", { dateStyle: "long" });
 }
 
+function parseSafeDate(value: string | Date | null | undefined) {
+  if (value == null) return null;
+  const parsed = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function formatRenewalForPlan(sub: ActiveSub) {
+  const normalizedPlan = normalizePlanName(sub.plan);
+  if (normalizedPlan === ESSENTIAL_PLAN_NAME) {
+    const baseDate = parseSafeDate(sub.periodStart) ?? parseSafeDate(sub.updatedAt) ?? parseSafeDate(sub.createdAt);
+    if (!baseDate) return "—";
+    const expirationDate = new Date(baseDate.getTime() + ESSENTIAL_PLAN_DURATION_MS);
+    return expirationDate.toLocaleDateString("es-ES", { dateStyle: "long" });
+  }
+  return formatRenewal(sub.periodEnd);
+}
+
 function toActiveSub(s: ServerSubscriptionSnapshot | undefined): ActiveSub | null {
   if (s == null) return null;
   return {
@@ -143,12 +166,21 @@ export function SubscriptionCard({
   forcePlanSelection = false,
   accessError,
   serverSubscription = null,
+  redirectAfterPayment = "/configuracion",
+  loginCallbackUrl = "/configuracion",
+  hideBillingPortal = false,
+  hideRenewalAlerts = false,
 }: {
   forcePlanSelection?: boolean;
   accessError?: string;
   serverSubscription?: ServerSubscriptionSnapshot;
+  redirectAfterPayment?: string;
+  loginCallbackUrl?: string;
+  hideBillingPortal?: boolean;
+  hideRenewalAlerts?: boolean;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const [activeSub, setActiveSub] = useState<ActiveSub | null>(() => {
     const a = toActiveSub(serverSubscription);
@@ -209,7 +241,7 @@ export function SubscriptionCard({
       setListPending(false);
     }
     router.refresh();
-  }, [session?.user, router]);
+  }, [sessionUserId, router]);
 
   const serverKey = serverSubscription
     ? `${serverSubscription.plan}:${serverSubscription.createdAt}`
@@ -255,6 +287,11 @@ export function SubscriptionCard({
   const showPlans =
     Boolean(session?.user) && !subscriptionBodyLoading && plansForUi.length > 0;
   const normalizedCurrentPlan = displaySub ? normalizePlanName(displaySub.plan) : null;
+  const isOnboardingMode = hideBillingPortal;
+  const cardTitle = isOnboardingMode ? "¡Bienvenido a PensionDesk!" : "Suscripción";
+  const cardDescription = isOnboardingMode
+    ? "Selecciona el plan que mejor se adapte a tus necesidades para comenzar con tus cálculos."
+    : "Plan, facturación y estado del servicio.";
 
   const handleBillingPortal = async () => {
     setPortalPending(true);
@@ -273,7 +310,7 @@ export function SubscriptionCard({
 
   const handleSubscribe = async (planName: string) => {
     if (!session?.user) {
-      router.push("/login?callbackUrl=/configuracion");
+      router.push(`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`);
       return;
     }
     setCheckoutPlan(planName);
@@ -302,8 +339,8 @@ export function SubscriptionCard({
     }
     const checkoutReturnUrl =
       typeof window !== "undefined"
-        ? `${window.location.origin}/configuracion`
-        : "/configuracion";
+        ? `${window.location.origin}${redirectAfterPayment.startsWith("/") ? redirectAfterPayment : `/${redirectAfterPayment}`}`
+        : redirectAfterPayment;
     const upgradePayload = {
       plan: planName,
       successUrl: checkoutReturnUrl,
@@ -318,12 +355,15 @@ export function SubscriptionCard({
     }
   };
 
-  const normalizedAccessError = (accessError ?? "").toLowerCase();
+  const forcePlanSelectionFromUrl = searchParams.get("planRequired") === "1";
+  const urlAccessError = searchParams.get("error");
+  const normalizedAccessError = (urlAccessError ?? accessError ?? "").toLowerCase();
   const redirectErrorCode: AccessErrorCode =
     normalizedAccessError === "expired_essential" || normalizedAccessError === "payment_issue"
       ? normalizedAccessError
       : "no_plan";
-  const alertCode: AccessErrorCode | null = forcePlanSelection ? redirectErrorCode : null;
+  const shouldForcePlanSelection = forcePlanSelection || forcePlanSelectionFromUrl;
+  const alertCode: AccessErrorCode | null = shouldForcePlanSelection ? redirectErrorCode : null;
   const alertUi =
     alertCode === "payment_issue"
       ? {
@@ -358,22 +398,28 @@ export function SubscriptionCard({
             <CreditCard className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0">
-            <CardTitle className="text-lg">Suscripción</CardTitle>
-            <CardDescription>Plan, facturación y estado del servicio.</CardDescription>
+            <CardTitle className="text-lg">{cardTitle}</CardTitle>
+            <CardDescription>{cardDescription}</CardDescription>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {alertUi ? (
+        {alertUi && !hideRenewalAlerts ? (
           <div className={alertUi.className}>
             {alertUi.icon}
             <p>{alertUi.message}</p>
           </div>
         ) : null}
+        {shouldForcePlanSelection ? (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <p>Para acceder a la calculadora, primero debes seleccionar un plan.</p>
+          </div>
+        ) : null}
         {listError ? (
           <p className="text-destructive text-xs leading-relaxed">{listError}</p>
         ) : null}
-        {showEssentialExpiredNotice ? (
+        {showEssentialExpiredNotice && !hideRenewalAlerts ? (
           <p className="text-amber-700 text-xs leading-relaxed">
             Tu Plan Esencial expiró porque superó las 48 horas desde su activación. Puedes
             suscribirte nuevamente o cambiar a un plan recurrente.
@@ -399,6 +445,11 @@ export function SubscriptionCard({
 
         {showActive && displaySub ? (
           <>
+            {(() => {
+              const isEssentialPlan = normalizePlanName(displaySub.plan) === ESSENTIAL_PLAN_NAME;
+              const renewalLabel = isEssentialPlan ? "Expira el" : "Próxima renovación";
+              return (
+                <>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="min-w-0 space-y-2">
                 <Label htmlFor="cfg-plan">Plan</Label>
@@ -420,17 +471,53 @@ export function SubscriptionCard({
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cfg-renovacion">Próxima renovación</Label>
+              <Label htmlFor="cfg-renovacion">{renewalLabel}</Label>
               <Input
                 id="cfg-renovacion"
                 readOnly
-                value={formatRenewal(displaySub.periodEnd)}
+                value={formatRenewalForPlan(displaySub)}
                 className="h-10 w-full bg-muted/40"
               />
             </div>
             <p className="text-muted-foreground text-xs leading-relaxed">
               Gestiona métodos de pago e historial desde el portal seguro de Stripe.
             </p>
+                </>
+              );
+            })()}
+          </>
+        ) : null}
+        {!subscriptionBodyLoading && !showActive && Boolean(session?.user) ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="cfg-plan-empty">Plan</Label>
+                <Input
+                  id="cfg-plan-empty"
+                  readOnly
+                  value="No tienes un plan activo"
+                  className="h-10 w-full bg-muted/40"
+                />
+              </div>
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="cfg-estado-empty">Estado</Label>
+                <Input
+                  id="cfg-estado-empty"
+                  readOnly
+                  value="Sin suscripción"
+                  className="h-10 w-full bg-muted/40"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cfg-renovacion-empty">Próxima renovación</Label>
+              <Input
+                id="cfg-renovacion-empty"
+                readOnly
+                value="N/A"
+                className="h-10 w-full bg-muted/40"
+              />
+            </div>
           </>
         ) : null}
 
@@ -510,7 +597,9 @@ export function SubscriptionCard({
                     size="sm"
                     className="w-full"
                     variant="secondary"
-                    onClick={() => router.push("/login?callbackUrl=/configuracion")}
+                    onClick={() =>
+                      router.push(`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`)
+                    }
                   >
                     Suscribirse
                   </Button>
@@ -524,7 +613,7 @@ export function SubscriptionCard({
         ) : null}
       </CardContent>
       <CardFooter className="flex flex-col gap-3 border-t bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
-        {showActive ? (
+        {showActive && !hideBillingPortal ? (
           <>
             <p className="text-muted-foreground hidden text-xs sm:max-w-[55%] sm:block">
               Facturación y métodos de pago se configuran en el portal de Stripe.

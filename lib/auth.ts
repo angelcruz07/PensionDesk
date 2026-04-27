@@ -1,6 +1,5 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { createFreemiumEssentialOnUserSignup } from "@/lib/create-freemium-essential-subscription";
 import { prisma } from "@/lib/prisma";
 import { stripe } from "@better-auth/stripe";
 import Stripe from "stripe";
@@ -55,15 +54,6 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-  },
-  databaseHooks: {
-    user: {
-      create: {
-        after: async (user) => {
-          await createFreemiumEssentialOnUserSignup(user.id);
-        },
-      },
-    },
   },
   plugins: stripePlugin ? [stripePlugin] : [],
 });
