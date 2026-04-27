@@ -8,24 +8,18 @@ import Stripe from "stripe";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY?.trim();
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
 
-const subscriptionPlans = [
-  {
-    name: "Plan Esencial",
-    priceId: process.env.STRIPE_PRICE_ID_PLAN_ESENCIAL!,
-  },
-  {
-    name: "Plan Profesional",
-    priceId: process.env.STRIPE_PRICE_ID_PLAN_PROFESIONAL!,
-  },
-  {
-    name: "Plan Despacho",
-    priceId: process.env.STRIPE_PRICE_ID_PLAN_DESPACHO!,
-  },
-];
-
-const stripeSubscriptionPlans = subscriptionPlans.filter(
-  (p) => (p.priceId ?? "").trim().length > 0,
-);
+const stripeSubscriptionPlans = [
+  { name: "Plan Esencial", priceId: process.env.STRIPE_PRICE_ID_PLAN_ESENCIAL },
+  { name: "Plan Profesional", priceId: process.env.STRIPE_PRICE_ID_PLAN_PROFESIONAL },
+  { name: "Plan Despacho", priceId: process.env.STRIPE_PRICE_ID_PLAN_DESPACHO },
+]
+  .map((plan) => ({
+    name: plan.name,
+    priceId: (plan.priceId ?? "").trim(),
+  }))
+  .filter(
+    (plan): plan is { name: string; priceId: string } => plan.priceId.length > 0,
+  );
 
 const stripePlugin =
   stripeSecretKey != null && stripeSecretKey.length > 0

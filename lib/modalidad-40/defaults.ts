@@ -4,6 +4,7 @@ export const DEFAULT_MODALIDAD_INPUTS: ModalidadInputs = {
   semanasActuales: 0,
   semanasFaltantes: 0,
   sueldoPromedioMensual: 0,
+  edadActual: 50,
   edadRetiro: 60,
   umaMensual: 3566.22,
   edadInicioMod40: 57,

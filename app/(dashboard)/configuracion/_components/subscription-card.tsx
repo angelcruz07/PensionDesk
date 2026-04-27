@@ -175,8 +175,10 @@ export function SubscriptionCard({
     }));
   }, []);
 
+  const sessionUserId = session?.user?.id;
+
   const refreshSubscriptions = useCallback(async () => {
-    if (!session?.user) {
+    if (sessionUserId == null) {
       setActiveSub(null);
       setExpiredEssentialPlan(false);
       setListPending(false);
