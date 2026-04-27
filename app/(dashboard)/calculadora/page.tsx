@@ -27,6 +27,8 @@ type ActiveSubscription = {
   plan: string;
   status: string;
   createdAt?: string | Date | null;
+  periodStart?: string | Date | null;
+  updatedAt?: string | Date | null;
   periodEnd?: string | Date | null;
 };
 
@@ -74,6 +76,8 @@ export default async function CalculadoraPage() {
       plan: true,
       status: true,
       createdAt: true,
+      periodStart: true,
+      updatedAt: true,
       periodEnd: true,
     },
   })) as ActiveSubscription | null;

@@ -41,19 +41,30 @@ export default async function ConfiguracionPage({
     plan: string;
     status: string;
     createdAt: string;
+    periodStart: string | null;
+    updatedAt: string;
     periodEnd: string | null;
   } | null = null;
   if (session?.user) {
     const row = await prisma.subscription.findFirst({
       where: { referenceId: session.user.id },
       orderBy: { createdAt: "desc" },
-      select: { plan: true, status: true, createdAt: true, periodEnd: true },
+      select: {
+        plan: true,
+        status: true,
+        createdAt: true,
+        periodStart: true,
+        updatedAt: true,
+        periodEnd: true,
+      },
     });
     if (row) {
       serverSubscription = {
         plan: row.plan,
         status: row.status,
         createdAt: row.createdAt.toISOString(),
+        periodStart: row.periodStart ? row.periodStart.toISOString() : null,
+        updatedAt: row.updatedAt.toISOString(),
         periodEnd: row.periodEnd ? row.periodEnd.toISOString() : null,
       };
     }

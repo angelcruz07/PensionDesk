@@ -46,6 +46,8 @@ type ActiveSub = {
   plan: string;
   status: string;
   createdAt?: string | Date | null;
+  periodStart?: string | Date | null;
+  updatedAt?: string | Date | null;
   periodEnd?: string | Date | null;
 };
 
@@ -56,6 +58,8 @@ export type ServerSubscriptionSnapshot = {
   plan: string;
   status: string;
   createdAt: string;
+  periodStart: string | null;
+  updatedAt: string;
   periodEnd: string | null;
 } | null;
 
@@ -96,6 +100,8 @@ function toActiveSub(s: ServerSubscriptionSnapshot | undefined): ActiveSub | nul
     plan: s.plan,
     status: s.status,
     createdAt: s.createdAt,
+    periodStart: s.periodStart,
+    updatedAt: s.updatedAt,
     periodEnd: s.periodEnd,
   };
 }
@@ -245,7 +251,8 @@ export function SubscriptionCard({
     session?.user && displaySub && !subscriptionBodyLoading,
   );
   const showPlans =
-    Boolean(session?.user) && !subscriptionBodyLoading && !displaySub && plansForUi.length > 0;
+    Boolean(session?.user) && !subscriptionBodyLoading && plansForUi.length > 0;
+  const normalizedCurrentPlan = displaySub ? normalizePlanName(displaySub.plan) : null;
 
   const handleBillingPortal = async () => {
     setPortalPending(true);
@@ -291,11 +298,18 @@ export function SubscriptionCard({
         return;
       }
     }
-    const { error } = await authClient.subscription.upgrade({
+    const checkoutReturnUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/configuracion`
+        : "/configuracion";
+    const upgradePayload = {
       plan: planName,
-      successUrl: "/configuracion",
-      cancelUrl: "/configuracion",
-    });
+      successUrl: checkoutReturnUrl,
+      cancelUrl: checkoutReturnUrl,
+      returnUrl: checkoutReturnUrl,
+    };
+    console.log("[subscription.upgrade] payload", upgradePayload);
+    const { error } = await authClient.subscription.upgrade(upgradePayload);
     setCheckoutPlan(null);
     if (error) {
       setListError(error.message ?? "No se pudo iniciar el checkout.");
@@ -421,30 +435,50 @@ export function SubscriptionCard({
         {showPlans ? (
           <>
             <div className="grid gap-3 sm:grid-cols-3">
-              {plansForUi.map((plan) => (
-                <div
-                  key={plan.name}
-                  className="flex h-full flex-col gap-3 rounded-lg border border-border bg-muted/20 p-3"
-                >
-                  <p className="text-muted-foreground text-xs leading-none">{plan.brand}</p>
-                  <p className="text-sm font-medium leading-snug">{plan.name}</p>
-                  <p className="text-muted-foreground text-sm leading-none">
-                    {plan.priceLabel} MXN - {plan.billingLabel}
-                  </p>
-                  <p className="text-muted-foreground flex-1 text-xs leading-relaxed">
-                    {plan.description}
-                  </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="w-full"
-                    disabled={checkoutPlan !== null}
-                    onClick={() => void handleSubscribe(plan.name)}
+              {plansForUi.map((plan) => {
+                const isCurrentPlan =
+                  normalizedCurrentPlan != null &&
+                  normalizePlanName(plan.name) === normalizedCurrentPlan;
+                const buttonLabel = isCurrentPlan
+                  ? "Tu plan actual"
+                  : checkoutPlan === plan.name
+                    ? "Redirigiendo…"
+                    : showActive
+                      ? "Cambiar plan"
+                      : "Suscribirse";
+
+                return (
+                  <div
+                    key={plan.name}
+                    className="flex h-full flex-col gap-3 rounded-lg border border-border bg-muted/20 p-3"
                   >
-                    {checkoutPlan === plan.name ? "Redirigiendo…" : "Suscribirse"}
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-muted-foreground text-xs leading-none">{plan.brand}</p>
+                      {isCurrentPlan ? (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium leading-none text-emerald-700">
+                          Actual
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-sm font-medium leading-snug">{plan.name}</p>
+                    <p className="text-muted-foreground text-sm leading-none">
+                      {plan.priceLabel} MXN - {plan.billingLabel}
+                    </p>
+                    <p className="text-muted-foreground flex-1 text-xs leading-relaxed">
+                      {plan.description}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full"
+                      disabled={checkoutPlan !== null || isCurrentPlan}
+                      onClick={() => void handleSubscribe(plan.name)}
+                    >
+                      {buttonLabel}
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
             <p className="text-muted-foreground text-xs leading-relaxed">
               El pago se procesa de forma segura con Stripe Checkout. Tras completar el pago

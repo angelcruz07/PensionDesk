@@ -11,6 +11,13 @@ export type EssentialPlanExpiryCheck = {
   plan: string;
   /** Inicio del periodo (freemium o fila creada en checkout); ancla del reloj de 48 h. */
   createdAt?: string | Date | null;
+  /** Inicio de periodo reportado por Stripe/better-auth al activar o renovar. */
+  periodStart?: string | Date | null;
+  /**
+   * Respaldo cuando el proveedor actualiza la misma fila de suscripción:
+   * `updatedAt` cambia aunque `createdAt` permanezca igual.
+   */
+  updatedAt?: string | Date | null;
 };
 
 /**
@@ -19,8 +26,16 @@ export type EssentialPlanExpiryCheck = {
  */
 export function isEssentialPlanExpired(sub: EssentialPlanExpiryCheck) {
   if (normalizePlanName(sub.plan) !== ESSENTIAL_PLAN_NAME) return false;
-  if (sub.createdAt == null) return true;
-  const createdAtDate = typeof sub.createdAt === "string" ? new Date(sub.createdAt) : sub.createdAt;
-  if (Number.isNaN(createdAtDate.getTime())) return true;
-  return Date.now() - createdAtDate.getTime() > ESSENTIAL_PLAN_DURATION_MS;
+  const parseDate = (value?: string | Date | null) => {
+    if (value == null) return null;
+    const dateValue = typeof value === "string" ? new Date(value) : value;
+    return Number.isNaN(dateValue.getTime()) ? null : dateValue;
+  };
+
+  // Usa la fecha de activación más reciente disponible para reiniciar correctamente la ventana.
+  const effectiveStart =
+    parseDate(sub.periodStart) ?? parseDate(sub.updatedAt) ?? parseDate(sub.createdAt);
+  if (effectiveStart == null) return true;
+
+  return Date.now() - effectiveStart.getTime() > ESSENTIAL_PLAN_DURATION_MS;
 }
