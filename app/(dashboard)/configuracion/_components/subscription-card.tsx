@@ -50,6 +50,8 @@ const subscriptionPlans = [
 type ActiveSub = {
   plan: string;
   status: string;
+  stripeSubscriptionId?: string | null;
+  cancelAtPeriodEnd?: boolean | null;
   createdAt?: string | Date | null;
   periodStart?: string | Date | null;
   updatedAt?: string | Date | null;
@@ -122,6 +124,8 @@ function toActiveSub(s: ServerSubscriptionSnapshot | undefined): ActiveSub | nul
   return {
     plan: s.plan,
     status: s.status,
+    stripeSubscriptionId: null,
+    cancelAtPeriodEnd: null,
     createdAt: s.createdAt,
     periodStart: s.periodStart,
     updatedAt: s.updatedAt,
@@ -315,28 +319,7 @@ export function SubscriptionCard({
     }
     setCheckoutPlan(planName);
     setListError(null);
-    const needResetForEssentialRebuy =
-      planName === ESSENTIAL_PLAN_DISPLAY &&
-      expiredEssentialPlan &&
-      (serverSub == null || isEssentialPlanExpired(serverSub));
-    if (needResetForEssentialRebuy) {
-      const res = await fetch("/api/subscription/reset-expired-essential", {
-        method: "POST",
-        credentials: "include",
-      });
-      if (!res.ok) {
-        let msg = "No se pudo preparar la renovación del Plan Esencial.";
-        try {
-          const body = (await res.json()) as { error?: string };
-          if (body.error) msg = body.error;
-        } catch {
-          /* ignore */
-        }
-        setCheckoutPlan(null);
-        setListError(msg);
-        return;
-      }
-    }
+    const isEssentialPlanSelection = planName === ESSENTIAL_PLAN_DISPLAY;
     const checkoutReturnUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}${redirectAfterPayment.startsWith("/") ? redirectAfterPayment : `/${redirectAfterPayment}`}`
@@ -346,6 +329,8 @@ export function SubscriptionCard({
       successUrl: checkoutReturnUrl,
       cancelUrl: checkoutReturnUrl,
       returnUrl: checkoutReturnUrl,
+      ...(isEssentialPlanSelection ? { scheduleAtPeriodEnd: true } : {}),
+      ...(displaySub?.stripeSubscriptionId ? { subscriptionId: displaySub.stripeSubscriptionId } : {}),
     };
     console.log("[subscription.upgrade] payload", upgradePayload);
     const { error } = await authClient.subscription.upgrade(upgradePayload);

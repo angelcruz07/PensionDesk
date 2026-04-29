@@ -54,7 +54,12 @@ function hasRecurringPlanAccess(subscription: ActiveSubscription) {
 
 function getRecurringAccessErrorCode(subscription: ActiveSubscription) {
   const normalizedStatus = subscription.status.toLowerCase();
+  const periodEnded =
+    subscription.periodEnd != null && !hasFuturePeriodEnd(subscription);
   if (BLOCKED_SUBSCRIPTION_STATUSES.has(normalizedStatus)) return "payment_issue";
+  if (SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus) && periodEnded) {
+    return "payment_issue";
+  }
   if (!SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus) && !hasFuturePeriodEnd(subscription)) {
     return "payment_issue";
   }
