@@ -45,8 +45,10 @@ function hasFuturePeriodEnd(subscription: ActiveSubscription) {
 /** Solo Profesional / Despacho: estados y periodEnd; no aplica a Plan Esencial. */
 function hasRecurringPlanAccess(subscription: ActiveSubscription) {
   const normalizedStatus = subscription.status.toLowerCase();
+  const periodEnded =
+    subscription.periodEnd != null && !hasFuturePeriodEnd(subscription);
   if (BLOCKED_SUBSCRIPTION_STATUSES.has(normalizedStatus)) return false;
-  if (SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus)) return true;
+  if (SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus)) return !periodEnded;
   return hasFuturePeriodEnd(subscription);
 }
 
