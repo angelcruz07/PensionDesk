@@ -191,8 +191,6 @@ function Kpi({
   );
 }
 
-
-
 export function Modalidad40Calculator() {
   const baseId = useId();
   const [s, setS] = useState<ModalidadInputs>(() => cloneDefaultModalidadInputs());

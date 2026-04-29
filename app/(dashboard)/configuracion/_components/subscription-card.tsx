@@ -29,7 +29,7 @@ const subscriptionPlans = [
     priceLabel: "$249",
     billingLabel: "Pago unico",
     description:
-      "Acceso individual a la calculadora por un tiempo limitado (48 horas). Sin descarga de documentos.",
+      "Acceso individual a la calculadora por un tiempo limitado (48 horas).",
   },
   {
     name: "Plan Profesional",
