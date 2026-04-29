@@ -90,6 +90,7 @@ export function NumericField({
   unit,
   /** Botones +/− (usar con enteros o decimales discretos). */
   stepUpDown,
+  compact = false,
 }: {
   id?: string;
   label: string;
@@ -101,6 +102,7 @@ export function NumericField({
   className?: string;
   unit?: string;
   stepUpDown?: { step?: number; min?: number; max?: number };
+  compact?: boolean;
 }) {
   const uid = useId();
   const id = idProp ?? uid;
@@ -171,20 +173,34 @@ export function NumericField({
     [value, step, variant, onChange, min, max, maxFractionDigits]
   );
 
+  const borderRow = compact ? "min-h-9" : "min-h-10";
+
   const prefix =
     variant === "currency" ? (
-      <span className="text-muted-foreground border-input flex w-8 shrink-0 items-center justify-center border-r bg-muted/30 text-sm font-medium select-none">
+      <span className={cn(
+        "text-muted-foreground border-input flex shrink-0 items-center justify-center border-r bg-muted/30 font-medium select-none",
+        compact ? "w-7 text-xs" : "w-8 text-sm",
+      )}
+      >
         $
       </span>
     ) : null;
 
   const percentSuffix =
     variant === "percent" ? (
-      <span className="text-muted-foreground border-input flex w-8 shrink-0 items-center justify-center border-l bg-muted/30 text-sm font-medium select-none">
+      <span className={cn(
+        "text-muted-foreground border-input flex shrink-0 items-center justify-center border-l bg-muted/30 font-medium select-none",
+        compact ? "w-7 text-xs" : "w-8 text-sm",
+      )}
+      >
         %
       </span>
     ) : unit ? (
-      <span className="text-muted-foreground border-input flex shrink-0 items-center border-l bg-muted/30 px-2.5 text-xs font-medium select-none">
+      <span className={cn(
+        "text-muted-foreground border-input flex shrink-0 items-center border-l bg-muted/30 font-medium select-none",
+        compact ? "px-2 text-[11px]" : "px-2.5 text-xs",
+      )}
+      >
         {unit}
       </span>
     ) : null;
@@ -192,17 +208,21 @@ export function NumericField({
   const showStepper = Boolean(stepUpDown);
 
   return (
-    <div className={cn("group space-y-2", className)}>
+    <div className={cn("group", compact ? "space-y-1" : "space-y-2", className)}>
       <Label
         htmlFor={id}
-        className="text-muted-foreground block w-full text-sm font-medium leading-snug break-words"
+        className={cn(
+          "text-muted-foreground block w-full font-medium leading-snug break-words",
+          compact ? "text-xs leading-tight" : "text-sm",
+        )}
       >
         {label}
       </Label>
       <div
         className={cn(
-          "flex min-h-10 items-stretch overflow-hidden rounded-md border border-input bg-background transition-[box-shadow,border-color]",
-          "focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50"
+          "flex items-stretch overflow-hidden rounded-md border border-input bg-background transition-[box-shadow,border-color]",
+          borderRow,
+          "focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50",
         )}
       >
         {prefix}
@@ -228,7 +248,8 @@ export function NumericField({
             }
           }}
           className={cn(
-            "h-10 flex-1 min-w-0 rounded-none border-0 bg-transparent py-0 text-sm tabular-nums shadow-none focus-visible:ring-0 md:h-10",
+            "flex-1 min-w-0 rounded-none border-0 bg-transparent py-0 tabular-nums shadow-none focus-visible:ring-0",
+            compact ? "h-9 text-sm md:h-9" : "h-10 text-sm md:h-10",
             prefix ? "pl-2" : "pl-3",
             showStepper || percentSuffix ? "pr-2" : "pr-3"
           )}
@@ -260,7 +281,13 @@ export function NumericField({
         ) : null}
       </div>
       {hint ? (
-        <p id={hintId} className="text-muted-foreground text-[11px] leading-relaxed">
+        <p
+          id={hintId}
+          className={cn(
+            "text-muted-foreground leading-snug",
+            compact ? "text-[10px]" : "text-[11px] leading-relaxed",
+          )}
+        >
           {hint}
         </p>
       ) : null}

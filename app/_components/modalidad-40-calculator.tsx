@@ -12,7 +12,14 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { calcDerived } from "@/lib/modalidad-40/formulas";
+import {
+  calcDerived,
+  MAX_ANIOS_MODALIDAD_40,
+  MIN_ANIOS_MODALIDAD_40,
+  pagoAnualDesdePagoImss,
+  pagoImssDesdeSalario250,
+  SEMANAS_POR_ANIO,
+} from "@/lib/modalidad-40/formulas";
 import { cloneDefaultModalidadInputs } from "@/lib/modalidad-40/defaults";
 import type { ModalidadInputs } from "@/lib/modalidad-40/formulas";
 import {
@@ -37,59 +44,8 @@ const PAGE_WRAP =
 const EDADES_RETIRO = [60, 61, 62, 63, 64, 65] as const;
 
 const EDADES_INICIO_MOD40 = [55, 56, 57, 58, 59, 60] as const;
-
-const ANIOS_MOD40 = [1, 2, 3, 4, 5] as const;
-
-/** Años en Mod. 40: siempre 1 a 5. */
-function AniosMod40Selector({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label
-        id={`${id}-label`}
-        className="text-muted-foreground block w-full text-sm font-medium leading-snug break-words"
-      >
-        {label}
-      </Label>
-      <div
-        id={`${id}-group`}
-        className="flex flex-wrap gap-1.5"
-        role="radiogroup"
-        aria-labelledby={`${id}-label`}
-      >
-        {ANIOS_MOD40.map((anios) => (
-          <Button
-            key={anios}
-            type="button"
-            variant={value === anios ? "default" : "outline"}
-            size="sm"
-            className="min-w-10 shrink-0 px-3"
-            onClick={() => onChange(anios)}
-            aria-checked={value === anios}
-            role="radio"
-            aria-label={
-              anios === 1 ? "1 año en Modalidad 40" : `${anios} años en Modalidad 40`
-            }
-          >
-            {anios}
-          </Button>
-        ))}
-      </div>
-      <p className="text-muted-foreground text-[11px] leading-relaxed">
-        Rango fijo: de 1 a 5 años en Modalidad 40.
-      </p>
-    </div>
-  );
-}
+const TOPE_LEY_ANUAL = 177722.8;
+const TOPE_PENSION_100 = 78800;
 
 function EdadRetiroSelector({
   id,
@@ -105,16 +61,16 @@ function EdadRetiroSelector({
   showHint?: boolean;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <Label
         id={`${id}-label`}
-        className="text-muted-foreground block w-full text-sm font-medium leading-snug break-words"
+        className="text-muted-foreground block w-full text-xs font-medium leading-tight break-words"
       >
         {label}
       </Label>
       <div
         id={`${id}-group`}
-        className="flex flex-wrap gap-1.5"
+        className="flex flex-wrap gap-1"
         role="radiogroup"
         aria-labelledby={`${id}-label`}
       >
@@ -124,7 +80,7 @@ function EdadRetiroSelector({
             type="button"
             variant={value === edad ? "default" : "outline"}
             size="sm"
-            className="min-w-10 shrink-0 px-3"
+            className="h-8 min-h-8 min-w-9 shrink-0 px-2.5 text-xs"
             onClick={() => onChange(edad)}
             aria-checked={value === edad}
             role="radio"
@@ -135,7 +91,9 @@ function EdadRetiroSelector({
         ))}
       </div>
       {showHint ? (
-        <p className="text-muted-foreground text-[11px]">Solo edades de 60 a 65 años.</p>
+        <p className="text-muted-foreground text-[10px] leading-snug">
+          Solo edades de 60 a 65 años.
+        </p>
       ) : null}
     </div>
   );
@@ -144,35 +102,43 @@ function EdadRetiroSelector({
 function EdadInicioMod40Selector({
   id,
   label,
+  edadRetiro,
   value,
   onChange,
 }: {
   id: string;
   label: string;
+  edadRetiro: number;
   value: number;
   onChange: (v: number) => void;
 }) {
+  const minAllowed = Math.max(55, edadRetiro - MAX_ANIOS_MODALIDAD_40);
+  const maxAllowed = Math.min(60, edadRetiro - MIN_ANIOS_MODALIDAD_40);
+  const opciones = EDADES_INICIO_MOD40.filter(
+    (e) => e >= minAllowed && e <= maxAllowed
+  );
+
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       <Label
         id={`${id}-label`}
-        className="text-muted-foreground block w-full text-sm font-medium leading-snug break-words"
+        className="text-muted-foreground block w-full text-xs font-medium leading-tight break-words"
       >
         {label}
       </Label>
       <div
         id={`${id}-group`}
-        className="flex flex-wrap gap-1.5"
+        className="flex flex-wrap gap-1"
         role="radiogroup"
         aria-labelledby={`${id}-label`}
       >
-        {EDADES_INICIO_MOD40.map((edad) => (
+        {opciones.map((edad) => (
           <Button
             key={edad}
             type="button"
             variant={value === edad ? "default" : "outline"}
             size="sm"
-            className="min-w-10 shrink-0 px-3"
+            className="h-8 min-h-8 min-w-9 shrink-0 px-2.5 text-xs"
             onClick={() => onChange(edad)}
             aria-checked={value === edad}
             role="radio"
@@ -182,9 +148,6 @@ function EdadInicioMod40Selector({
           </Button>
         ))}
       </div>
-      <p className="text-muted-foreground text-[11px] leading-relaxed">
-        (Escenario Mod. 40) Debe ser menor o igual a la edad de retiro.
-      </p>
     </div>
   );
 }
@@ -245,37 +208,29 @@ export function Modalidad40Calculator() {
     }
   }, [s.edadRetiro]);
 
-  /** No puede iniciar Modalidad 40 después de la edad de retiro (evita años negativos). */
+  /** 55–60, inicio ≤ retiro−1 (≥1 año) e inicio ≥ retiro−5 (≤5 años). */
   useEffect(() => {
     setS((p) => {
       const minEdad = 55;
-      const maxEdad = Math.min(60, p.edadRetiro);
-      const clamped = Math.min(maxEdad, Math.max(minEdad, Math.round(Number(p.edadInicioMod40))));
+      const maxPorRetiro = Math.min(60, p.edadRetiro - MIN_ANIOS_MODALIDAD_40);
+      const minPorAniosPermitidos = p.edadRetiro - MAX_ANIOS_MODALIDAD_40;
+      const minEfectiva = Math.max(minEdad, Math.round(minPorAniosPermitidos));
+      const clamped = Math.min(
+        maxPorRetiro,
+        Math.max(minEfectiva, Math.round(Number(p.edadInicioMod40)))
+      );
       if (clamped === p.edadInicioMod40) return p;
       return { ...p, edadInicioMod40: clamped };
     });
   }, [s.edadRetiro, s.edadInicioMod40]);
 
-  /** Cantidad de años Mod. 40 acotada a 1–5. */
-  useEffect(() => {
-    setS((p) => {
-      const v = Math.round(Number(p.cantidadAniosMod40));
-      if (!Number.isFinite(v)) {
-        return { ...p, cantidadAniosMod40: 1 };
-      }
-      const clamped = Math.min(5, Math.max(1, v));
-      if (clamped === p.cantidadAniosMod40) return p;
-      return { ...p, cantidadAniosMod40: clamped };
-    });
-  }, [s.cantidadAniosMod40]);
-
-  /** Semanas faltantes automáticas: del año en curso hasta la edad de retiro (52 semanas por año). */
+  /** Semanas faltantes automáticas: del año en curso hasta la edad de retiro (50 semanas por año). */
   useEffect(() => {
     setS((p) => {
       const edadActual = Math.max(0, Number(p.edadActual));
       const edadRetiro = Math.max(0, Number(p.edadRetiro));
       const semanasActuales = Math.max(0, Math.round(Number(p.semanasActuales)));
-      const semanasDisponibles = Math.max(0, Math.round((edadRetiro - edadActual) * 52));
+      const semanasDisponibles = Math.max(0, Math.round((edadRetiro - edadActual) * SEMANAS_POR_ANIO));
       const faltantes = Math.max(0, semanasDisponibles - semanasActuales);
       if (faltantes === p.semanasFaltantes) return p;
       return { ...p, semanasFaltantes: faltantes };
@@ -283,6 +238,24 @@ export function Modalidad40Calculator() {
   }, [s.edadActual, s.edadRetiro, s.semanasActuales, s.semanasFaltantes]);
 
   const derived = useMemo(() => calcDerived(s), [s]);
+  const aniosSalarioNormal = Math.max(0, MAX_ANIOS_MODALIDAD_40 - derived.aniosMod40);
+  const pagoMensualImssSalarioNormal = pagoImssDesdeSalario250(s.sueldoPromedioMensual);
+  const pagoAnualImssSalarioNormal = pagoAnualDesdePagoImss(pagoMensualImssSalarioNormal);
+  const pagoTotalAniosSalarioNormal = pagoAnualImssSalarioNormal * aniosSalarioNormal;
+  const salarioPromedioMensualMod40 = s.salarioPromedio250ImssCaptura;
+  const salarioPromedioAnualMod40 = salarioPromedioMensualMod40 * 12;
+  const pagoMensualImssMod40 = pagoImssDesdeSalario250(salarioPromedioMensualMod40);
+  const pagoAnualImssMod40 = pagoAnualDesdePagoImss(pagoMensualImssMod40);
+  const pagoTotalAniosMod40 = pagoAnualImssMod40 * derived.aniosMod40;
+  const sumaAmbosSalarios = s.sueldoPromedioMensual + salarioPromedioMensualMod40;
+  const sumaTotalImssPagadoNormalYMod40 =
+    pagoTotalAniosSalarioNormal + pagoTotalAniosMod40;
+  const salarioPromedioCombinado = sumaTotalImssPagadoNormalYMod40 / 5;
+  const porcentajePensionSobreTope =
+    TOPE_LEY_ANUAL > 0 ? salarioPromedioCombinado / TOPE_LEY_ANUAL : 0;
+  const porcentajePensionRedondeado = Math.round(porcentajePensionSobreTope * 100);
+  const promedioSalario = (porcentajePensionRedondeado / 100) * TOPE_PENSION_100;
+  const pensionConProyectoYSalario = promedioSalario * derived.factorEdad;
 
   const diffTone =
     derived.diferencia >= -1e-6 ? ("positive" as const) : ("warning" as const);
@@ -370,95 +343,113 @@ export function Modalidad40Calculator() {
             <Card
               className="scroll-mt-24 overflow-hidden border-border shadow-sm"
             >
-              <CardHeader className="gap-1 border-b border-border bg-muted/40 px-3 py-3 sm:px-4">
+              <CardHeader className="gap-0.5 border-b border-border bg-muted/40 px-3 py-2.5 sm:px-4">
                 <CardTitle className="text-base md:text-lg">Parámetros</CardTitle>
-                <CardDescription className="text-xs leading-relaxed">
+                <CardDescription className="text-[11px] leading-snug">
                   Coma o punto;{" "}
-                  <kbd className="bg-muted rounded border px-1 py-0.5 text-[10px] font-mono">Enter</kbd>{" "}
-                  o blur. ▲▼ ajustan el valor.
+                  <kbd className="bg-muted rounded border px-1 py-0.5 font-mono text-[10px]">
+                    Enter
+                  </kbd>{" "}
+                  o blur; ▲▼ ajustan.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
+              <CardContent className="px-3 py-3 sm:px-4">
+                <div className="flex flex-col gap-2.5 sm:gap-3">
+                  <div className="grid grid-cols-1 gap-2 sm:gap-3 md:grid-cols-2 xl:grid-cols-12 xl:gap-x-3 xl:gap-y-2">
+                    <NumericField
+                      key={`${fk}-sa`}
+                      compact
+                      className="xl:col-span-2"
+                      id={`${baseId}-sa`}
+                      label="Semanas cotizadas actuales"
+                      value={s.semanasActuales}
+                      onChange={(v) => setS((p) => ({ ...p, semanasActuales: v }))}
+                      variant="integer"
+                      unit="sem"
+                      stepUpDown={{ step: 1, min: 0 }}
+                    />
+                    <NumericField
+                      key={`${fk}-su`}
+                      compact
+                      className="xl:col-span-4"
+                      id={`${baseId}-su`}
+                      label="Sueldo promedio mensual"
+                      value={s.sueldoPromedioMensual}
+                      onChange={(v) => setS((p) => ({ ...p, sueldoPromedioMensual: v }))}
+                      variant="currency"
+                      maxFractionDigits={2}
+                      stepUpDown={{ step: 100, min: 0 }}
+                    />
+                    <NumericField
+                      key={`${fk}-ea`}
+                      compact
+                      className="xl:col-span-2"
+                      id={`${baseId}-ea`}
+                      label="Edad actual"
+                      value={s.edadActual}
+                      onChange={(v) => setS((p) => ({ ...p, edadActual: v }))}
+                      variant="integer"
+                      unit="años"
+                      hint="Años cumplidos hoy."
+                      stepUpDown={{ step: 1, min: 18, max: 100 }}
+                    />
+                    <div className="md:col-span-2 xl:col-span-4">
+                      <EdadRetiroSelector
+                        id={`${baseId}-ed`}
+                        label="Edad de retiro"
+                        value={s.edadRetiro}
+                        onChange={(v) => setS((p) => ({ ...p, edadRetiro: v }))}
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <NumericField
-                  key={`${fk}-sa`}
-                  id={`${baseId}-sa`}
-                  label="Semanas cotizadas actuales"
-                  value={s.semanasActuales}
-                  onChange={(v) => setS((p) => ({ ...p, semanasActuales: v }))}
-                  variant="integer"
-                  unit="sem"
-                  stepUpDown={{ step: 1, min: 0 }}
-                />
-                <NumericField
-                  key={`${fk}-su`}
-                  id={`${baseId}-su`}
-                  label="Sueldo promedio mensual"
-                  value={s.sueldoPromedioMensual}
-                  onChange={(v) => setS((p) => ({ ...p, sueldoPromedioMensual: v }))}
-                  variant="currency"
-                  maxFractionDigits={2}
-                  stepUpDown={{ step: 100, min: 0 }}
-                />
-                <NumericField
-                  key={`${fk}-ea`}
-                  id={`${baseId}-ea`}
-                  label="Edad actual"
-                  value={s.edadActual}
-                  onChange={(v) => setS((p) => ({ ...p, edadActual: v }))}
-                  variant="integer"
-                  unit="años"
-                  hint="Tu edad hoy (años cumplidos)."
-                  stepUpDown={{ step: 1, min: 18, max: 100 }}
-                />
-                   <EdadRetiroSelector
-                    id={`${baseId}-ed`}
-                    label="Edad de retiro"
-                    value={s.edadRetiro}
-                    onChange={(v) => setS((p) => ({ ...p, edadRetiro: v }))}
-                  />
-                
-                <div id="plan-mod40" className="md:col-span-2 xl:col-span-3">
-                  <p className="text-muted-foreground rounded-md border border-dashed border-border/70 bg-muted/25 px-3 py-2 text-xs">
-                    Parámetros del escenario Modalidad 40.
-                  </p>
+                  <div id="plan-mod40">
+                    <p className="text-muted-foreground rounded-md border border-dashed border-border/70 bg-muted/30 px-2.5 py-1.5 text-[11px] leading-snug">
+                      Parámetros del escenario Modalidad 40
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:gap-3 xl:grid-cols-12 xl:gap-x-3 xl:gap-y-2">
+                    <div className="xl:col-span-4">
+                      <EdadInicioMod40Selector
+                        id={`${baseId}-eim`}
+                        label="Edad inicio Modalidad 40"
+                        edadRetiro={s.edadRetiro}
+                        value={s.edadInicioMod40}
+                        onChange={(v) =>
+                          setS((p) => ({ ...p, edadInicioMod40: v }))
+                        }
+                      />
+                    </div>
+                    <NumericField
+                      key={`${fk}-anhist`}
+                      compact
+                      className="xl:col-span-2"
+                      id={`${baseId}-anhist`}
+                      label="Años con sueldo promedio"
+                      value={s.aniosConSueldoPromedio}
+                      onChange={(v) => setS((p) => ({ ...p, aniosConSueldoPromedio: v }))}
+                      variant="integer"
+                      unit="años"
+                      stepUpDown={{ step: 1, min: 0 }}
+                    />
+                    <NumericField
+                      key={`${fk}-s250`}
+                      compact
+                      className="xl:col-span-6"
+                      id={`${baseId}-s250`}
+                      label="Salario prom. 250 sem. IMSS (mensual)"
+                      value={s.salarioPromedio250ImssCaptura}
+                      onChange={(v) =>
+                        setS((p) => ({ ...p, salarioPromedio250ImssCaptura: v }))
+                      }
+                      variant="currency"
+                      maxFractionDigits={2}
+                      hint="Opcional. 0 = solo modelo."
+                      stepUpDown={{ step: 100, min: 0 }}
+                    />
+                  </div>
                 </div>
-                <EdadInicioMod40Selector
-                  id={`${baseId}-eim`}
-                  label="Edad inicio Modalidad 40"
-                  value={s.edadInicioMod40}
-                  onChange={(v) => setS((p) => ({ ...p, edadInicioMod40: v }))}
-                />
-                <AniosMod40Selector
-                  id={`${baseId}-c40`}
-                  label="Cantidad de años Mod. 40"
-                  value={s.cantidadAniosMod40}
-                  onChange={(v) => setS((p) => ({ ...p, cantidadAniosMod40: v }))}
-                />
-                <NumericField
-                  key={`${fk}-anhist`}
-                  id={`${baseId}-anhist`}
-                  label="Años con sueldo promedio"
-                  value={s.aniosConSueldoPromedio}
-                  onChange={(v) => setS((p) => ({ ...p, aniosConSueldoPromedio: v }))}
-                  variant="integer"
-                  unit="años"
-                  stepUpDown={{ step: 1, min: 0 }}
-                />
-                <NumericField
-                  key={`${fk}-s250`}
-                  id={`${baseId}-s250`}
-                  label="Salario prom. últimas 250 sem. IMSS (mensual)"
-                  className="md:col-span-2 xl:col-span-1"
-                  value={s.salarioPromedio250ImssCaptura}
-                  onChange={(v) => setS((p) => ({ ...p, salarioPromedio250ImssCaptura: v }))}
-                  variant="currency"
-                  maxFractionDigits={2}
-                  hint="Opcional. Monto mensual del IMSS; 0 = usar solo el cálculo del modelo."
-                  stepUpDown={{ step: 100, min: 0 }}
-                />
-              </div>
               </CardContent>
             </Card>
           </section>
@@ -476,6 +467,28 @@ export function Modalidad40Calculator() {
             </CardHeader>
             <CardContent className="space-y-3">
               <Out
+                label="Salario promedio mensual"
+                value={formatCurrency(s.sueldoPromedioMensual)}
+              />
+              <Out
+                label="Promedio salario anual"
+                value={formatCurrency(derived.salarioPromedioAnual)}
+              />
+              <Out label="Años en salario normal" value={formatInteger(aniosSalarioNormal)} />
+              <Out
+                label="Pago mensual al IMSS con salario normal"
+                value={formatCurrency(pagoMensualImssSalarioNormal)}
+              />
+              <Out
+                label="Pago total anual al IMSS con salario normal"
+                value={formatCurrency(pagoAnualImssSalarioNormal)}
+              />
+              <Out
+                label="Pago total de los años con salario normal"
+                value={formatCurrency(pagoTotalAniosSalarioNormal)}
+              />
+              <Out label="Edad de retiro" value={formatInteger(s.edadRetiro)} />
+              <Out
                 emphasis
                 label="Pensión estimada mensual"
                 value={formatCurrency(derived.pensionActual)}
@@ -489,8 +502,59 @@ export function Modalidad40Calculator() {
               <CardDescription>Comparativo frente al escenario base.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Out emphasis label="Nueva pensión" value={formatCurrency(derived.nuevaPension)} />
-              <Out label="Diferencia vs. pensión actual" value={formatCurrency(derived.diferencia)} />
+              <Out
+                label="Salario promedio mensual"
+                value={formatCurrency(salarioPromedioMensualMod40)}
+              />
+              <Out
+                label="Promedio salario anual"
+                value={formatCurrency(salarioPromedioAnualMod40)}
+              />
+              <Out
+                label="Años en Modalidad 40"
+                value={formatInteger(derived.aniosMod40)}
+              />
+              <Out
+                label="Pago mensual al IMSS con Modalidad 40"
+                value={formatCurrency(pagoMensualImssMod40)}
+              />
+              <Out
+                label="Pago anual al IMSS con Modalidad 40"
+                value={formatCurrency(pagoAnualImssMod40)}
+              />
+              <Out
+                label="Pago total de los años en Modalidad 40"
+                value={formatCurrency(pagoTotalAniosMod40)}
+              />
+              <Out
+                label="Suma de ambos salarios (años normal + Modalidad 40)"
+                value={formatCurrency(sumaAmbosSalarios)}
+              />
+              <Out
+                label="Suma total pagada al IMSS (normal + Modalidad 40)"
+                value={formatCurrency(sumaTotalImssPagadoNormalYMod40)}
+              />
+              <Out
+                label="Salario promedio combinado"
+                value={formatCurrency(salarioPromedioCombinado)}
+              />
+              <Out
+                label="Porcentaje de pensión"
+                value={`${formatInteger(porcentajePensionRedondeado)}%`}
+              />
+              <Out
+                label="Promedio salario"
+                value={formatCurrency(promedioSalario)}
+              />
+              <Out
+                label="Pensión con proyecto y salario"
+                value={formatCurrency(pensionConProyectoYSalario)}
+              />
+              <Out emphasis label="Nueva pensión con modalidad 40" value={formatCurrency(derived.nuevaPension)} />
+              <Out
+                label="Diferencia vs. pensión actual"
+                value={formatCurrency(derived.diferencia)}
+              />
             </CardContent>
           </Card>
 
@@ -498,111 +562,36 @@ export function Modalidad40Calculator() {
 
           <Card className="border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Resumen de cálculos automáticos</CardTitle>
+              <CardTitle className="text-lg">Calculos promedio actuarial ajustado</CardTitle>
               <CardDescription>Valores derivados para referencia rápida.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              <Out label="Semanas cotizadas (total)" value={formatInteger(derived.semanasTotal)} />
+              <Out label="Total de semanas cotizadas" value={formatInteger(derived.semanasTotal)} />
               <Out
                 label="Semanas cotizadas faltantes"
                 value={formatInteger(derived.semanasFaltantesCalculadas)}
               />
               <Out label="Semanas excedentes" value={formatInteger(derived.semanasExcedentes)} />
+              <Out label="Valor UMA mensual" value={formatCurrency(s.umaMensual)} />
               <Out label="Veces UMA" value={formatNumber(derived.vecesUma, 1)} />
               <Out label="Rango UMA" value={derived.rangoUma} />
-              <Out label="Valor UDI" value={formatNumber(s.valorUdi, 2)} />
-              <Out label="Valor UMA mensual" value={formatCurrency(s.umaMensual)} />
-              <Out
-                label="Factor IMSS vs salario nominal"
-                value={formatNumber(s.factorImssVsNominal, 3)}
-              />
-              <Out
-                label="Incremento salarial anual"
-                value={formatPercentFromRate(derived.pctIncrementoSalarial)}
-              />
+              <Out label="Incremento salarial" value={formatPercentFromRate(derived.pctIncrementoSalarial)} />
               <Out label="Número de incrementos" value={formatInteger(derived.numIncrementos)} />
               <Out label="Factor incremento" value={formatNumber(derived.factorIncremento, 2)} />
               <Out label="Factor edad" value={formatNumber(derived.factorEdad, 2)} />
-              <Out
-                label="Pago anual normal"
-                value={formatCurrency(derived.pagoAnualNormal)}
-              />
+              <Out label="Años en Modalidad 40" value={formatInteger(derived.aniosMod40)} />          
               <Out
                 label="Pago Modalidad 40"
                 value={formatCurrency(derived.pagoModalidad40Total)}
               />
+              <Out label="Valor UDI" value={formatNumber(s.valorUdi, 2)} />
+              <Out
+                label="UDIs de resguardo al año"
+                value={formatNumber(derived.udis, 2)}
+              />
+
             </CardContent>
           </Card>
-        </section>
-
-        <section className="space-y-3 sm:space-y-4">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Cálculo Modalidad 40</h2>
-            <p className="text-muted-foreground text-sm">Proyección, finanzas y desglose del escenario.</p>
-          </div>
-
-        <div id="finanzas-proyeccion" className="scroll-mt-28">
-          <Card className="border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Resumen financiero y proyección final</CardTitle>
-              <CardDescription>Consolidado de variables calculadas y resultado final.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Out
-                label="Pago al IMSS"
-                value={formatCurrency(derived.pagoImss)}
-              />
-              <Out
-                label="Pago anual normal)"
-                value={formatCurrency(derived.pagoAnualNormal)}
-              />
-              <Out
-                label="UDIs"
-                value={
-                  derived.udis === null ? "—" : formatNumber(derived.udis, 2)
-                }
-              />
-              <Out
-                label="Pago total de UDIs "
-                value={
-                  derived.pagoTotalUdisModalidad === null
-                    ? "—"
-                    : formatNumber(derived.pagoTotalUdisModalidad, 2)
-                }
-              />
-              <Out
-                label="Pago Modalidad 40 (cantidad × pago anual normal)"
-                value={formatCurrency(derived.pagoModalidad40Total)}
-              />
-              <Separator />
-              <Out
-                label="Salario IMSS × años con sueldo promedio"
-                value={formatCurrency(derived.totalSalarioHistorial)}
-              />
-              <Out
-                label="Salario incrementado por años Mod. 40"
-                value={
-                  derived.salarioIncrementadoMod40 === null
-                    ? "—"
-                    : formatCurrency(derived.salarioIncrementadoMod40)
-                }
-              />
-              <Separator />
-              <Out label="Suma de ambos salarios" value={formatCurrency(derived.sumaAmbosSalarios)} />
-              <Out
-                label="Salario promedio al IMSS combinado"
-                value={formatCurrency(derived.salarioPromedioImssCombinado)}
-              />
-              <Out label="Promedio salario (ajuste)" value={formatCurrency(derived.promedioSalario)} />
-              <Out label="Edad de retiro" value={formatInteger(s.edadRetiro)} />
-              <Out
-                emphasis
-                label="Pensión con proyecto y salario"
-                value={formatCurrency(derived.pensionConProyecto)}
-              />
-            </CardContent>
-          </Card>
-        </div>
         </section>
         </div>
       </main>

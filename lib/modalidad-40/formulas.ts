@@ -5,6 +5,21 @@
 
 const EPS = 1e-9;
 
+/** Semanas por año usadas en proyección de cotización e incrementos (en lugar de 52). */
+export const SEMANAS_POR_ANIO = 50;
+
+/** Mínimo de años en Modalidad 40 admitido en este simulador. */
+export const MIN_ANIOS_MODALIDAD_40 = 1;
+
+/** Máximo de años permitidos cotizando en Modalidad 40 en este simulador. */
+export const MAX_ANIOS_MODALIDAD_40 = 5;
+
+/**
+ * Pesos relativos nominado→estimación de salario cotizado histórico (calibración heredada del libro Excel interno).
+ * `factorImssVsNominalEfectivo` = salario mensual 250 sem. ÷ sueldo nominal (derivado interno).
+ */
+export const FACTOR_CALIB_IMSS_HISTORIAL = 33.84 / 15;
+
 export type ModalidadInputs = {
   semanasActuales: number;
   semanasFaltantes: number;
@@ -15,10 +30,7 @@ export type ModalidadInputs = {
   umaMensual: number;
   edadInicioMod40: number;
   pagoAnualPlan: number;
-  cantidadAniosMod40: number;
   valorUdi: number;
-  /** Peso histórico respecto al salario nominal (calibra hacia el ejemplo Excel). */
-  factorImssVsNominal: number;
   aniosConSueldoPromedio: number;
   /**
    * Salario promedio mensual de las últimas 250 semanas según el IMSS (opcional).
@@ -41,11 +53,11 @@ export type ModalidadDerived = {
   sueldoPagadoImssMensual: number;
   aniosMod40: number;
   salarioPromedio250: number;
-  pagoImss: number | null;
+  pagoImss: number;
   pagoAnualNormal: number;
   /** UDIs = pago anual normal ÷ valor UDI. */
   udis: number | null;
-  /** UDIs (anual) × años en Modalidad 40 (`cantidadAniosMod40`). */
+  /** UDIs (anual) × años en Modalidad 40 (edad retiro − edad inicio). */
   pagoTotalUdisModalidad: number | null;
   pagoModalidad40Total: number;
   pensionActual: number;
@@ -58,8 +70,6 @@ export type ModalidadDerived = {
   salarioIncrementadoMod40: number | null;
   sumaAmbosSalarios: number;
   denomCombinado: number;
-  /** true si se usa `salarioPromedio250ImssCaptura` en lugar del promedio combinado del modelo. */
-  usaSalario250ImssManual: boolean;
 };
 
 export function divisionSegura(numerador: number, denominador: number): number | null {
@@ -80,10 +90,10 @@ export function semanasExcedentesDesdeCotizadas(
   return Math.max(0, semanasCotizadas - minimoSemanas);
 }
 
-/** Número de incrementos según Excel: ENTERO(B11 / 52), donde B11 = semanas excedentes. */
+/** Número de incrementos: cada bloque de `SEMANAS_POR_ANIO` semanas excedentes cuenta un incremento. */
 export function numeroIncrementosDesdeSemanasExcedentes(semanasExcedentes: number): number {
   if (!Number.isFinite(semanasExcedentes) || semanasExcedentes <= 0) return 0;
-  return Math.floor(semanasExcedentes / 52);
+  return Math.floor(semanasExcedentes / SEMANAS_POR_ANIO);
 }
 
 /** Veces UMA = salario mensual ÷ UMA mensual (0 si no hay UMA). */
@@ -130,15 +140,16 @@ export function factorIncrementoDesdeValores(
   return 1 + numIncrementos * pctIncrementoSalarial;
 }
 
-/** Pago al IMSS según Excel: B18 * 18.8%, donde B18 = salario últimas 250 semanas. */
-export function pagoImssDesdeSalario250(salarioPromedio250: number | null): number | null {
-  if (salarioPromedio250 === null) return null;
-  return salarioPromedio250 * 0.188;
+/** Cotización sobre salario base (Modalidad 40): 18.8 %. */
+const COTIZACION_PCT_IMSS = 0.188;
+
+export function pagoImssDesdeSalario250(salarioPromedio250: number): number {
+  if (!Number.isFinite(salarioPromedio250) || salarioPromedio250 < 0) return 0;
+  return salarioPromedio250 * COTIZACION_PCT_IMSS;
 }
 
 /** Pago anual normal = pago al IMSS × 12. */
-export function pagoAnualDesdePagoImss(pagoImss: number | null): number {
-  if (pagoImss === null) return 0;
+export function pagoAnualDesdePagoImss(pagoImss: number): number {
   return pagoImss * 12;
 }
 
@@ -163,9 +174,11 @@ export function sueldoImssMensualDesdeNominal(
   return sueldoNominalMensual * factorImssVsNominal;
 }
 
-/** Años en Modalidad 40 = edad de retiro − edad de inicio en el régimen. */
+/** Años en Modalidad 40: retiro − inicio, acotado a 1–5; si difierencia menor a 1 año, 0. */
 export function aniosModalidad40(edadRetiro: number, edadInicioMod40: number): number {
-  return edadRetiro - edadInicioMod40;
+  const diff = edadRetiro - edadInicioMod40;
+  if (diff < MIN_ANIOS_MODALIDAD_40) return 0;
+  return Math.min(MAX_ANIOS_MODALIDAD_40, diff);
 }
 
 /** Parte del historial: IMSS mensual × años con sueldo promedio. */
@@ -221,7 +234,7 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
   const semanasActuales = Math.max(0, Math.round(Number(input.semanasActuales)));
   const semanasDisponibles = Math.max(
     0,
-    Math.round((edadRetiroParaSemanas - edadActual) * 52)
+    Math.round((edadRetiroParaSemanas - edadActual) * SEMANAS_POR_ANIO)
   );
   const semanasFaltantesDinamicas = Math.max(0, semanasDisponibles - semanasActuales);
 
@@ -242,9 +255,10 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     pctIncrementoSalarial
   );
   const salarioPromedioAnual = salarioPromedioAnualDesdeMensual(sueldo);
+
   const sueldoPagadoImssMensual = sueldoImssMensualDesdeNominal(
     sueldo,
-    input.factorImssVsNominal
+    FACTOR_CALIB_IMSS_HISTORIAL
   );
 
   const edadRetiro = Number(input.edadRetiro);
@@ -281,16 +295,21 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     ? input.salarioPromedio250ImssCaptura
     : (salarioPromedioImssCombinadoVal ?? sueldoPagadoImssMensual);
 
+  const factorImssVsNominalEfectivo =
+    Math.abs(sueldo) >= EPS ? salarioMensual250Imss / sueldo : 0;
+
   const baseSalarioParaPension: number = salarioMensual250Imss;
   const salarioPromedio250: number = salarioMensual250Imss;
-  const pagoImss = pagoImssDesdeSalario250(salarioPromedio250);
+
+  const pagoImss = pagoImssDesdeSalario250(salarioMensual250Imss);
+
   const pagoAnualNormal = pagoAnualDesdePagoImss(pagoImss);
   const udis = divisionSegura(pagoAnualNormal, input.valorUdi);
-  const aniosEnMod40 = Math.max(0, input.cantidadAniosMod40);
+  const aniosMod40ParaPago = Math.max(0, aniosMod40);
   const pagoTotalUdisModalidad =
-    udis === null ? null : udis * aniosEnMod40;
+    udis === null ? null : udis * aniosMod40ParaPago;
   const pagoModalidad40Total = pagoModalidad40DesdeAnual(
-    input.cantidadAniosMod40,
+    aniosMod40ParaPago,
     pagoAnualNormal
   );
 
@@ -339,6 +358,5 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     salarioIncrementadoMod40,
     sumaAmbosSalarios,
     denomCombinado,
-    usaSalario250ImssManual,
   };
 }
