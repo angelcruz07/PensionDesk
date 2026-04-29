@@ -319,7 +319,6 @@ export function SubscriptionCard({
     }
     setCheckoutPlan(planName);
     setListError(null);
-    const isEssentialPlanSelection = planName === ESSENTIAL_PLAN_DISPLAY;
     const checkoutReturnUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}${redirectAfterPayment.startsWith("/") ? redirectAfterPayment : `/${redirectAfterPayment}`}`
@@ -329,10 +328,8 @@ export function SubscriptionCard({
       successUrl: checkoutReturnUrl,
       cancelUrl: checkoutReturnUrl,
       returnUrl: checkoutReturnUrl,
-      ...(isEssentialPlanSelection ? { scheduleAtPeriodEnd: true } : {}),
       ...(displaySub?.stripeSubscriptionId ? { subscriptionId: displaySub.stripeSubscriptionId } : {}),
     };
-    console.log("[subscription.upgrade] payload", upgradePayload);
     const { error } = await authClient.subscription.upgrade(upgradePayload);
     setCheckoutPlan(null);
     if (error) {
