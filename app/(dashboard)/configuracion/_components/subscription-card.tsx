@@ -21,31 +21,7 @@ import {
   isEssentialPlanExpired,
   normalizePlanName,
 } from "@/lib/essential-plan";
-import { subscriptionPlans as subscriptionPlansConfig } from "@/lib/subscription-plans";
-
-const subscriptionPlans = [
-  {
-    name: "Plan Esencial",
-    priceLabel: "$249",
-    billingLabel: "Pago unico",
-    description:
-      "Acceso individual a la calculadora por un tiempo limitado (48 horas).",
-  },
-  {
-    name: "Plan Profesional",
-    priceLabel: "$699",
-    billingLabel: "Mensual",
-    description:
-      "Acceso ilimitado a la calculadora y generación de reportes en PDF personalizados con la identidad visual del agente.",
-  },
-  {
-    name: "Plan Despacho",
-    priceLabel: "$1,499",
-    billingLabel: "Mensual",
-    description:
-      "Gestión de cartera de clientes (CRM), historial de cálculos y sistema automatizado de seguimiento vía correo electrónico.",
-  },
-];
+import { subscriptionPlansCatalog } from "@/lib/subscription-plans";
 
 type ActiveSub = {
   plan: string;
@@ -200,16 +176,14 @@ export function SubscriptionCard({
   const [portalPending, setPortalPending] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
 
-  const plansForUi = useMemo(() => {
-    const dataByName = new Map(subscriptionPlans.map((plan) => [plan.name, plan]));
-    return subscriptionPlansConfig.map((plan) => ({
-      ...plan,
-      priceLabel: dataByName.get(plan.name)?.priceLabel ?? "$0",
-      billingLabel: dataByName.get(plan.name)?.billingLabel ?? "Mensual",
-      description: dataByName.get(plan.name)?.description ?? "",
-      brand: "Pension Desk",
-    }));
-  }, []);
+  const plansForUi = useMemo(
+    () =>
+      subscriptionPlansCatalog.map((plan) => ({
+        ...plan,
+        brand: "Pension Desk",
+      })),
+    [],
+  );
 
   const sessionUserId = session?.user?.id;
 
