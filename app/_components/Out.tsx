@@ -7,10 +7,13 @@ export function Out({
     label,
     value,
     emphasis,
+    hint,
   }: {
     label: string;
     value: string;
     emphasis?: boolean;
+    /** Texto auxiliar debajo de la etiqueta (p. ej. fórmula en una línea). */
+    hint?: string;
   }) {
     return (
       <div
@@ -21,14 +24,19 @@ export function Out({
             : "border-border bg-muted/30"
         )}
       >
-        <p
-          className={cx(
-            "max-w-[75%] text-xs leading-snug font-medium",
-            emphasis ? "text-foreground" : "text-muted-foreground"
-          )}
-        >
-          {label}
-        </p>
+        <div className="min-w-0 max-w-[75%]">
+          <p
+            className={cx(
+              "text-xs leading-snug font-medium",
+              emphasis ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            {label}
+          </p>
+          {hint ? (
+            <p className="text-muted-foreground mt-0.5 text-[10px] leading-snug">{hint}</p>
+          ) : null}
+        </div>
         <p className="shrink-0 text-right font-mono text-sm font-semibold tabular-nums tracking-tight text-foreground">
           {value}
         </p>

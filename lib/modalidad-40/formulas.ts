@@ -8,6 +8,12 @@ const EPS = 1e-9;
 /** Semanas por año usadas en proyección de cotización e incrementos (en lugar de 52). */
 export const SEMANAS_POR_ANIO = 50;
 
+/** Mínimo de años en Modalidad 40 admitido en este simulador. */
+export const MIN_ANIOS_MODALIDAD_40 = 1;
+
+/** Máximo de años permitidos cotizando en Modalidad 40 en este simulador. */
+export const MAX_ANIOS_MODALIDAD_40 = 5;
+
 /**
  * Pesos relativos nominado→estimación de salario cotizado histórico (calibración heredada del libro Excel interno).
  * `factorImssVsNominalEfectivo` = salario mensual 250 sem. ÷ sueldo nominal (derivado interno).
@@ -168,9 +174,11 @@ export function sueldoImssMensualDesdeNominal(
   return sueldoNominalMensual * factorImssVsNominal;
 }
 
-/** Años en Modalidad 40 = edad de retiro − edad de inicio en el régimen. */
+/** Años en Modalidad 40: retiro − inicio, acotado a 1–5; si difierencia menor a 1 año, 0. */
 export function aniosModalidad40(edadRetiro: number, edadInicioMod40: number): number {
-  return edadRetiro - edadInicioMod40;
+  const diff = edadRetiro - edadInicioMod40;
+  if (diff < MIN_ANIOS_MODALIDAD_40) return 0;
+  return Math.min(MAX_ANIOS_MODALIDAD_40, diff);
 }
 
 /** Parte del historial: IMSS mensual × años con sueldo promedio. */
