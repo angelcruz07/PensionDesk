@@ -12,8 +12,8 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { calcDerived } from "@/lib/modalidad-40/formulas";
-import { cloneDefaultModalidadInputs } from "@/lib/modalidad-40/defaults";
+import { calcDerived, SEMANAS_POR_ANIO } from "@/lib/modalidad-40/formulas";
+ import { cloneDefaultModalidadInputs } from "@/lib/modalidad-40/defaults";
 import type { ModalidadInputs } from "@/lib/modalidad-40/formulas";
 import {
   formatCurrency,
@@ -37,59 +37,6 @@ const PAGE_WRAP =
 const EDADES_RETIRO = [60, 61, 62, 63, 64, 65] as const;
 
 const EDADES_INICIO_MOD40 = [55, 56, 57, 58, 59, 60] as const;
-
-const ANIOS_MOD40 = [1, 2, 3, 4, 5] as const;
-
-/** Años en Mod. 40: siempre 1 a 5. */
-function AniosMod40Selector({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <Label
-        id={`${id}-label`}
-        className="text-muted-foreground block w-full text-sm font-medium leading-snug break-words"
-      >
-        {label}
-      </Label>
-      <div
-        id={`${id}-group`}
-        className="flex flex-wrap gap-1.5"
-        role="radiogroup"
-        aria-labelledby={`${id}-label`}
-      >
-        {ANIOS_MOD40.map((anios) => (
-          <Button
-            key={anios}
-            type="button"
-            variant={value === anios ? "default" : "outline"}
-            size="sm"
-            className="min-w-10 shrink-0 px-3"
-            onClick={() => onChange(anios)}
-            aria-checked={value === anios}
-            role="radio"
-            aria-label={
-              anios === 1 ? "1 año en Modalidad 40" : `${anios} años en Modalidad 40`
-            }
-          >
-            {anios}
-          </Button>
-        ))}
-      </div>
-      <p className="text-muted-foreground text-[11px] leading-relaxed">
-        Rango fijo: de 1 a 5 años en Modalidad 40.
-      </p>
-    </div>
-  );
-}
 
 function EdadRetiroSelector({
   id,
@@ -183,7 +130,8 @@ function EdadInicioMod40Selector({
         ))}
       </div>
       <p className="text-muted-foreground text-[11px] leading-relaxed">
-        (Escenario Mod. 40) Debe ser menor o igual a la edad de retiro.
+        (Escenario Mod. 40) Menor o igual a la edad de retiro. Los años en el régimen se calculan como
+        retiro − inicio.
       </p>
     </div>
   );
@@ -256,26 +204,13 @@ export function Modalidad40Calculator() {
     });
   }, [s.edadRetiro, s.edadInicioMod40]);
 
-  /** Cantidad de años Mod. 40 acotada a 1–5. */
-  useEffect(() => {
-    setS((p) => {
-      const v = Math.round(Number(p.cantidadAniosMod40));
-      if (!Number.isFinite(v)) {
-        return { ...p, cantidadAniosMod40: 1 };
-      }
-      const clamped = Math.min(5, Math.max(1, v));
-      if (clamped === p.cantidadAniosMod40) return p;
-      return { ...p, cantidadAniosMod40: clamped };
-    });
-  }, [s.cantidadAniosMod40]);
-
-  /** Semanas faltantes automáticas: del año en curso hasta la edad de retiro (52 semanas por año). */
+  /** Semanas faltantes automáticas: del año en curso hasta la edad de retiro (50 semanas por año). */
   useEffect(() => {
     setS((p) => {
       const edadActual = Math.max(0, Number(p.edadActual));
       const edadRetiro = Math.max(0, Number(p.edadRetiro));
       const semanasActuales = Math.max(0, Math.round(Number(p.semanasActuales)));
-      const semanasDisponibles = Math.max(0, Math.round((edadRetiro - edadActual) * 52));
+      const semanasDisponibles = Math.max(0, Math.round((edadRetiro - edadActual) * SEMANAS_POR_ANIO));
       const faltantes = Math.max(0, semanasDisponibles - semanasActuales);
       if (faltantes === p.semanasFaltantes) return p;
       return { ...p, semanasFaltantes: faltantes };
@@ -430,12 +365,6 @@ export function Modalidad40Calculator() {
                   value={s.edadInicioMod40}
                   onChange={(v) => setS((p) => ({ ...p, edadInicioMod40: v }))}
                 />
-                <AniosMod40Selector
-                  id={`${baseId}-c40`}
-                  label="Cantidad de años Mod. 40"
-                  value={s.cantidadAniosMod40}
-                  onChange={(v) => setS((p) => ({ ...p, cantidadAniosMod40: v }))}
-                />
                 <NumericField
                   key={`${fk}-anhist`}
                   id={`${baseId}-anhist`}
@@ -489,6 +418,10 @@ export function Modalidad40Calculator() {
               <CardDescription>Comparativo frente al escenario base.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <Out
+                label="Años en Modalidad 40"
+                value={formatInteger(derived.aniosMod40)}
+              />
               <Out emphasis label="Nueva pensión" value={formatCurrency(derived.nuevaPension)} />
               <Out label="Diferencia vs. pensión actual" value={formatCurrency(derived.diferencia)} />
             </CardContent>
@@ -523,6 +456,10 @@ export function Modalidad40Calculator() {
               <Out label="Número de incrementos" value={formatInteger(derived.numIncrementos)} />
               <Out label="Factor incremento" value={formatNumber(derived.factorIncremento, 2)} />
               <Out label="Factor edad" value={formatNumber(derived.factorEdad, 2)} />
+              <Out
+                label="Años en Modalidad 40"
+                value={formatInteger(derived.aniosMod40)}
+              />
               <Out
                 label="Pago anual normal"
                 value={formatCurrency(derived.pagoAnualNormal)}
@@ -571,7 +508,7 @@ export function Modalidad40Calculator() {
                 }
               />
               <Out
-                label="Pago Modalidad 40 (cantidad × pago anual normal)"
+                label="Pago Modalidad 40 (años en Mod. 40 × pago anual normal)"
                 value={formatCurrency(derived.pagoModalidad40Total)}
               />
               <Separator />
