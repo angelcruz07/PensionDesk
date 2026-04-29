@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pensión Desk · Suite IMSS",
+  title: "Pensión 360 · Suite IMSS",
   description:
     "Panel para estimar pensión, Modalidad 40 y futuros módulos para tu práctica.",
 };

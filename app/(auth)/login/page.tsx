@@ -6,7 +6,7 @@ import { auth } from "@/lib/auth";
 import { LoginForm } from "@/components/login-form";
 
 export const metadata: Metadata = {
-  title: "Iniciar sesión · Pensión Desk",
+  title: "Iniciar sesión · Pensión 360",
   description: "Accede a tu cuenta.",
 };
 

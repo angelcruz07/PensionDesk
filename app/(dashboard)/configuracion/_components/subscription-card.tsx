@@ -180,7 +180,7 @@ export function SubscriptionCard({
     () =>
       subscriptionPlansCatalog.map((plan) => ({
         ...plan,
-        brand: "Pension Desk",
+        brand: "Pensión 360",
       })),
     [],
   );
@@ -266,7 +266,7 @@ export function SubscriptionCard({
     Boolean(session?.user) && !subscriptionBodyLoading && plansForUi.length > 0;
   const normalizedCurrentPlan = displaySub ? normalizePlanName(displaySub.plan) : null;
   const isOnboardingMode = hideBillingPortal;
-  const cardTitle = isOnboardingMode ? "¡Bienvenido a PensionDesk!" : "Suscripción";
+  const cardTitle = isOnboardingMode ? "¡Bienvenido a Pensión 360!" : "Suscripción";
   const cardDescription = isOnboardingMode
     ? "Selecciona el plan que mejor se adapte a tus necesidades para comenzar con tus cálculos."
     : "Plan, facturación y estado del servicio.";
@@ -342,7 +342,7 @@ export function SubscriptionCard({
               className:
                 "flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800",
               icon: <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />,
-              message: "Selecciona un plan para comenzar a usar PensionDesk.",
+              message: "Selecciona un plan para comenzar a usar Pensión 360.",
             }
           : null;
 

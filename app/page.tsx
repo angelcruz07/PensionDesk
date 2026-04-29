@@ -13,7 +13,7 @@ import { subscriptionPlansCatalog } from "@/lib/subscription-plans";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Pensión Desk · Simulación IMSS para asesores",
+  title: "Pensión 360 · Simulación IMSS para asesores",
   description:
     "Estima pensiones y escenarios de Modalidad 40 con una interfaz pensada para despachos y asesoría IMSS.",
 };
@@ -42,7 +42,7 @@ export default async function LandingPage() {
       <header className="border-border/60 supports-[backdrop-filter]:bg-[#faf8f6]/75 sticky top-0 z-20 border-b bg-[#faf8f6]/80 px-4 py-3.5 backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
           <span className="font-heading bg-gradient-to-r from-foreground via-foreground to-amber-900/80 bg-clip-text text-base font-semibold tracking-tight text-transparent sm:text-lg">
-            Pensión Desk
+            Pensión 360
           </span>
           <nav className="flex shrink-0 items-center gap-2">
             {session ? (
@@ -219,7 +219,7 @@ export default async function LandingPage() {
                       </span>
                     ) : null}
                     <p className="text-muted-foreground text-xs leading-none tracking-wide uppercase">
-                      Pension Desk
+                      Pensión 360
                     </p>
                     <h3 className="font-heading mt-3 text-lg font-semibold leading-tight text-foreground">
                       {plan.name}
@@ -268,7 +268,7 @@ export default async function LandingPage() {
         <section className="relative mx-auto w-full max-w-5xl px-4 py-14 sm:py-16 md:py-20">
           <div className="mb-10 text-center">
             <h2 className="font-heading text-foreground text-xl font-semibold tracking-tight sm:text-2xl">
-              Todo lo que incluye Pensión Desk
+              Todo lo que incluye Pensión 360
             </h2>
             <p className="text-muted-foreground mt-2 max-w-xl mx-auto text-sm">
               Una base sólida hoy; módulos en evolución contigo.
@@ -312,7 +312,7 @@ export default async function LandingPage() {
         </section>
 
         <footer className="border-t border-amber-200/50 bg-white/40 py-8 text-center text-xs text-muted-foreground backdrop-blur-sm">
-          <p className="font-medium text-neutral-700">Pensión Desk</p>
+          <p className="font-medium text-neutral-700">Pensión 360</p>
           <p className="mt-1 opacity-90">Herramientas para asesores IMSS</p>
         </footer>
       </main>

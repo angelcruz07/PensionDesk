@@ -22,7 +22,7 @@ import { SubscriptionCard } from "./_components/subscription-card";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Configuración · Pensión Desk",
+  title: "Configuración · Pensión 360",
   description: "Perfil, suscripción y seguridad de la cuenta.",
 };
 

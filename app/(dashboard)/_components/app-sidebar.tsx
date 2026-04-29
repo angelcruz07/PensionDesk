@@ -70,7 +70,7 @@ export function AppSidebar() {
           </span>
           <div className="flex min-w-0 flex-1 flex-col gap-0.5 group-data-[collapsible=icon]:hidden">
             <span className="truncate text-sm font-semibold leading-none tracking-tight">
-              Pensión Desk
+              Pensión 360
             </span>
             <span className="text-muted-foreground truncate text-xs font-normal">
               Plataforma para asesores IMSS
