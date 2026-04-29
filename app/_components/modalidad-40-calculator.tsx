@@ -435,31 +435,26 @@ export function Modalidad40Calculator() {
               <CardDescription>Valores derivados para referencia rápida.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              <Out label="Semanas cotizadas (total)" value={formatInteger(derived.semanasTotal)} />
+              <Out label="Total de semanas cotizadas" value={formatInteger(derived.semanasTotal)} />
               <Out
                 label="Semanas cotizadas faltantes"
                 value={formatInteger(derived.semanasFaltantesCalculadas)}
               />
               <Out label="Semanas excedentes" value={formatInteger(derived.semanasExcedentes)} />
+              <Out label="Valor UMA mensual" value={formatCurrency(s.umaMensual)} />
               <Out label="Veces UMA" value={formatNumber(derived.vecesUma, 1)} />
               <Out label="Rango UMA" value={derived.rangoUma} />
-              <Out label="Valor UDI" value={formatNumber(s.valorUdi, 2)} />
-              <Out label="Valor UMA mensual" value={formatCurrency(s.umaMensual)} />
-              <Out
-                label="Factor IMSS vs salario nominal"
-                value={formatNumber(s.factorImssVsNominal, 3)}
-              />
-              <Out
-                label="Incremento salarial anual"
-                value={formatPercentFromRate(derived.pctIncrementoSalarial)}
-              />
+              <Out label="Incremento salarial" value={formatPercentFromRate(derived.pctIncrementoSalarial)} />
               <Out label="Número de incrementos" value={formatInteger(derived.numIncrementos)} />
               <Out label="Factor incremento" value={formatNumber(derived.factorIncremento, 2)} />
               <Out label="Factor edad" value={formatNumber(derived.factorEdad, 2)} />
               <Out
-                label="Años en Modalidad 40"
-                value={formatInteger(derived.aniosMod40)}
+                label="Pago al IMSS"
+                value={formatCurrency(derived.pagoImss)}
               />
+
+              <Out label="Valor UDI" value={formatNumber(s.valorUdi, 2)} />
+              <Out label="Años en Modalidad 40" value={formatInteger(derived.aniosMod40)} />
               <Out
                 label="Pago anual normal"
                 value={formatCurrency(derived.pagoAnualNormal)}
@@ -470,76 +465,6 @@ export function Modalidad40Calculator() {
               />
             </CardContent>
           </Card>
-        </section>
-
-        <section className="space-y-3 sm:space-y-4">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Cálculo Modalidad 40</h2>
-            <p className="text-muted-foreground text-sm">Proyección, finanzas y desglose del escenario.</p>
-          </div>
-
-        <div id="finanzas-proyeccion" className="scroll-mt-28">
-          <Card className="border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-lg">Resumen financiero y proyección final</CardTitle>
-              <CardDescription>Consolidado de variables calculadas y resultado final.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Out
-                label="Pago al IMSS"
-                value={formatCurrency(derived.pagoImss)}
-              />
-              <Out
-                label="Pago anual normal)"
-                value={formatCurrency(derived.pagoAnualNormal)}
-              />
-              <Out
-                label="UDIs"
-                value={
-                  derived.udis === null ? "—" : formatNumber(derived.udis, 2)
-                }
-              />
-              <Out
-                label="Pago total de UDIs "
-                value={
-                  derived.pagoTotalUdisModalidad === null
-                    ? "—"
-                    : formatNumber(derived.pagoTotalUdisModalidad, 2)
-                }
-              />
-              <Out
-                label="Pago Modalidad 40 (años en Mod. 40 × pago anual normal)"
-                value={formatCurrency(derived.pagoModalidad40Total)}
-              />
-              <Separator />
-              <Out
-                label="Salario IMSS × años con sueldo promedio"
-                value={formatCurrency(derived.totalSalarioHistorial)}
-              />
-              <Out
-                label="Salario incrementado por años Mod. 40"
-                value={
-                  derived.salarioIncrementadoMod40 === null
-                    ? "—"
-                    : formatCurrency(derived.salarioIncrementadoMod40)
-                }
-              />
-              <Separator />
-              <Out label="Suma de ambos salarios" value={formatCurrency(derived.sumaAmbosSalarios)} />
-              <Out
-                label="Salario promedio al IMSS combinado"
-                value={formatCurrency(derived.salarioPromedioImssCombinado)}
-              />
-              <Out label="Promedio salario (ajuste)" value={formatCurrency(derived.promedioSalario)} />
-              <Out label="Edad de retiro" value={formatInteger(s.edadRetiro)} />
-              <Out
-                emphasis
-                label="Pensión con proyecto y salario"
-                value={formatCurrency(derived.pensionConProyecto)}
-              />
-            </CardContent>
-          </Card>
-        </div>
         </section>
         </div>
       </main>

@@ -10,7 +10,6 @@ export const DEFAULT_MODALIDAD_INPUTS: ModalidadInputs = {
   edadInicioMod40: 57,
   pagoAnualPlan: 0,
   valorUdi: 8.82,
-  factorImssVsNominal: 33.84 / 15,
   aniosConSueldoPromedio: 7,
   salarioPromedio250ImssCaptura: 0,
 };

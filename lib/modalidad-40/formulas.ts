@@ -8,6 +8,12 @@ const EPS = 1e-9;
 /** Semanas por año usadas en proyección de cotización e incrementos (en lugar de 52). */
 export const SEMANAS_POR_ANIO = 50;
 
+/**
+ * Pesos relativos nominado→estimación de salario cotizado histórico (calibración heredada del libro Excel interno).
+ * `factorImssVsNominalEfectivo` = salario mensual 250 sem. ÷ sueldo nominal (derivado interno).
+ */
+export const FACTOR_CALIB_IMSS_HISTORIAL = 33.84 / 15;
+
 export type ModalidadInputs = {
   semanasActuales: number;
   semanasFaltantes: number;
@@ -19,8 +25,6 @@ export type ModalidadInputs = {
   edadInicioMod40: number;
   pagoAnualPlan: number;
   valorUdi: number;
-  /** Peso histórico respecto al salario nominal (calibra hacia el ejemplo Excel). */
-  factorImssVsNominal: number;
   aniosConSueldoPromedio: number;
   /**
    * Salario promedio mensual de las últimas 250 semanas según el IMSS (opcional).
@@ -60,8 +64,6 @@ export type ModalidadDerived = {
   salarioIncrementadoMod40: number | null;
   sumaAmbosSalarios: number;
   denomCombinado: number;
-  /** true si se usa `salarioPromedio250ImssCaptura` en lugar del promedio combinado del modelo. */
-  usaSalario250ImssManual: boolean;
 };
 
 export function divisionSegura(numerador: number, denominador: number): number | null {
@@ -132,6 +134,7 @@ export function factorIncrementoDesdeValores(
   return 1 + numIncrementos * pctIncrementoSalarial;
 }
 
+/** Cotización sobre salario base (Modalidad 40): 18.8 %. */
 const COTIZACION_PCT_IMSS = 0.188;
 
 export function pagoImssDesdeSalario250(salarioPromedio250: number): number {
@@ -244,9 +247,10 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     pctIncrementoSalarial
   );
   const salarioPromedioAnual = salarioPromedioAnualDesdeMensual(sueldo);
+
   const sueldoPagadoImssMensual = sueldoImssMensualDesdeNominal(
     sueldo,
-    input.factorImssVsNominal
+    FACTOR_CALIB_IMSS_HISTORIAL
   );
 
   const edadRetiro = Number(input.edadRetiro);
@@ -283,12 +287,14 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     ? input.salarioPromedio250ImssCaptura
     : (salarioPromedioImssCombinadoVal ?? sueldoPagadoImssMensual);
 
+  const factorImssVsNominalEfectivo =
+    Math.abs(sueldo) >= EPS ? salarioMensual250Imss / sueldo : 0;
+
   const baseSalarioParaPension: number = salarioMensual250Imss;
   const salarioPromedio250: number = salarioMensual250Imss;
-  const salarioBasePagoImss = usaSalario250ImssManual
-    ? input.salarioPromedio250ImssCaptura
-    : sueldo;
-  const pagoImss = pagoImssDesdeSalario250(salarioBasePagoImss);
+
+  const pagoImss = pagoImssDesdeSalario250(salarioMensual250Imss);
+
   const pagoAnualNormal = pagoAnualDesdePagoImss(pagoImss);
   const udis = divisionSegura(pagoAnualNormal, input.valorUdi);
   const aniosMod40ParaPago = Math.max(0, aniosMod40);
@@ -344,6 +350,5 @@ export function calcDerived(input: ModalidadInputs): ModalidadDerived {
     salarioIncrementadoMod40,
     sumaAmbosSalarios,
     denomCombinado,
-    usaSalario250ImssManual,
   };
 }
