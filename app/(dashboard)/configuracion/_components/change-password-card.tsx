@@ -62,7 +62,7 @@ export function ChangePasswordCard() {
   };
 
   return (
-    <Card className="min-w-0 border-border shadow-sm xl:col-span-2">
+    <Card className="min-w-0 border-border shadow-sm">
       <form onSubmit={(e) => void handleSubmit(e)} noValidate>
         <CardHeader className="space-y-1">
           <div className="flex items-center gap-2">

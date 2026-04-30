@@ -15,6 +15,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { AppLogo } from "@/components/app-logo";
 import { Badge } from "@/components/ui/badge";
 import {
   BarChart3,
@@ -65,9 +66,7 @@ export function AppSidebar() {
           href="/calculadora"
           className="flex items-center gap-3 rounded-lg px-2 py-1.5 outline-none ring-sidebar-ring transition-colors hover:bg-sidebar-accent/80 focus-visible:ring-2"
         >
-          <span className="bg-primary text-primary-foreground flex h-9 w-9 items-center justify-center rounded-lg font-bold shadow-sm">
-            P
-          </span>
+          <AppLogo size={36} decorative priority className="h-9 w-9 rounded-lg" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5 group-data-[collapsible=icon]:hidden">
             <span className="truncate text-sm font-semibold leading-none tracking-tight">
               Pensión 360

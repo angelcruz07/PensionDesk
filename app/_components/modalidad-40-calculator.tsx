@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import {
   calcDerived,
   MAX_ANIOS_MODALIDAD_40,
+  MAX_EDAD_INICIO_MODALIDAD_40,
   MIN_ANIOS_MODALIDAD_40,
   pagoAnualDesdePagoImss,
   pagoImssDesdeSalario250,
@@ -42,7 +43,9 @@ const PAGE_WRAP =
 
 const EDADES_RETIRO = [60, 61, 62, 63, 64, 65] as const;
 
-const EDADES_INICIO_MOD40 = [55, 56, 57, 58, 59, 60] as const;
+const EDADES_INICIO_MOD40 = [
+  55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+] as const;
 const TOPE_LEY_ANUAL = 177722.8;
 const TOPE_PENSION_100 = 78800;
 
@@ -112,7 +115,10 @@ function EdadInicioMod40Selector({
   onChange: (v: number) => void;
 }) {
   const minAllowed = Math.max(55, edadRetiro - MAX_ANIOS_MODALIDAD_40);
-  const maxAllowed = Math.min(60, edadRetiro - MIN_ANIOS_MODALIDAD_40);
+  const maxAllowed = Math.min(
+    MAX_EDAD_INICIO_MODALIDAD_40,
+    edadRetiro - MIN_ANIOS_MODALIDAD_40,
+  );
   const opciones = EDADES_INICIO_MOD40.filter(
     (e) => e >= minAllowed && e <= maxAllowed
   );
@@ -147,6 +153,10 @@ function EdadInicioMod40Selector({
           </Button>
         ))}
       </div>
+      <p className="text-muted-foreground text-[10px] leading-snug">
+        Entre {minAllowed} y {maxAllowed} años según retiro (1 a {MAX_ANIOS_MODALIDAD_40} años en
+        Modalidad 40; inicio hasta {MAX_EDAD_INICIO_MODALIDAD_40} años).
+      </p>
     </div>
   );
 }
@@ -176,12 +186,12 @@ function Kpi({
   return (
     <div
       className={cx(
-        "rounded-lg border bg-card p-4 shadow-sm sm:p-5",
+        "min-w-0 rounded-lg border bg-card p-4 shadow-sm sm:p-5",
         border
       )}
     >
-      <p className="text-muted-foreground text-xs font-medium">{title}</p>
-      <p className="mt-2 font-mono text-2xl font-semibold tabular-nums tracking-tight text-balance sm:text-3xl">
+      <p className="text-muted-foreground text-xs font-medium leading-snug">{title}</p>
+      <p className="mt-2 break-words font-mono text-xl font-semibold tabular-nums tracking-tight text-balance sm:text-2xl md:text-3xl">
         {value}
       </p>
       {subtitle ? (
@@ -205,11 +215,14 @@ export function Modalidad40Calculator() {
     }
   }, [s.edadRetiro]);
 
-  /** 55–60, inicio ≤ retiro−1 (≥1 año) e inicio ≥ retiro−5 (≤5 años). */
+  /** 55–64, inicio ≤ retiro−1 (≥1 año) e inicio ≥ retiro−5 (≤5 años). */
   useEffect(() => {
     setS((p) => {
       const minEdad = 55;
-      const maxPorRetiro = Math.min(60, p.edadRetiro - MIN_ANIOS_MODALIDAD_40);
+      const maxPorRetiro = Math.min(
+        MAX_EDAD_INICIO_MODALIDAD_40,
+        p.edadRetiro - MIN_ANIOS_MODALIDAD_40,
+      );
       const minPorAniosPermitidos = p.edadRetiro - MAX_ANIOS_MODALIDAD_40;
       const minEfectiva = Math.max(minEdad, Math.round(minPorAniosPermitidos));
       const clamped = Math.min(
@@ -312,7 +325,7 @@ export function Modalidad40Calculator() {
               </div>
             </div>
 
-            <div className="grid min-w-0 gap-3 sm:grid-cols-3 sm:gap-4 xl:col-span-7 xl:pt-1 2xl:col-span-8">
+            <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-3 md:gap-4 xl:col-span-7 xl:pt-1 2xl:col-span-8">
               <Kpi
                 title="Pensión estimada (actual)"
                 value={formatCurrency(derived.pensionActual)}
@@ -453,10 +466,12 @@ export function Modalidad40Calculator() {
 
         <section id="resultados-escenario" className="scroll-mt-28 space-y-3 sm:space-y-4">
           <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">Calculo promedio actuarial ajustado</h2>
+            <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
+              Calculadora de promedio actuarial ajustado
+            </h2>
             <p className="text-muted-foreground text-sm">Resumen automático basado en los parámetros capturados.</p>
           </div>
-          <div className="grid gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 lg:gap-6">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2 lg:gap-6">
           <Card className="border-border shadow-sm">
             <CardHeader>
               <CardTitle className="text-lg">Escenario normal sin  una estrategia financiera</CardTitle>
@@ -559,10 +574,12 @@ export function Modalidad40Calculator() {
 
           <Card className="border-border shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Calculos promedio actuarial ajustado</CardTitle>
+              <CardTitle className="text-lg">
+                Salidas de la calculadora (promedio actuarial ajustado)
+              </CardTitle>
               <CardDescription>Valores derivados para referencia rápida.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
               <Out label="Total de semanas cotizadas" value={formatInteger(derived.semanasTotal)} />
               <Out
                 label="Semanas cotizadas faltantes"

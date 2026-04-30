@@ -18,13 +18,13 @@ export function Out({
     return (
       <div
         className={cx(
-          "flex items-start justify-between gap-3 rounded-md border px-3 py-2.5 transition-colors sm:gap-4 sm:px-3.5",
+          "flex min-w-0 items-start justify-between gap-3 rounded-md border px-3 py-2.5 transition-colors sm:gap-4 sm:px-3.5",
           emphasis
             ? "border-primary/25 bg-muted/50"
             : "border-border bg-muted/30"
         )}
       >
-        <div className="min-w-0 max-w-[75%]">
+        <div className="min-w-0 flex-1 sm:max-w-[75%]">
           <p
             className={cx(
               "text-xs leading-snug font-medium",
@@ -37,7 +37,7 @@ export function Out({
             <p className="text-muted-foreground mt-0.5 text-[10px] leading-snug">{hint}</p>
           ) : null}
         </div>
-        <p className="shrink-0 text-right font-mono text-sm font-semibold tabular-nums tracking-tight text-foreground">
+        <p className="min-w-0 shrink text-right font-mono text-sm font-semibold tabular-nums tracking-tight break-words text-foreground">
           {value}
         </p>
       </div>

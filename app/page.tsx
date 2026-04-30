@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AppLogo } from "@/components/app-logo";
 import { headers } from "next/headers";
 import {
   Calculator,
@@ -41,9 +42,15 @@ export default async function LandingPage() {
 
       <header className="border-border/60 supports-[backdrop-filter]:bg-[#faf8f6]/75 sticky top-0 z-20 border-b bg-[#faf8f6]/80 px-4 py-3.5 backdrop-blur-xl sm:px-6">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          <span className="font-heading bg-gradient-to-r from-foreground via-foreground to-amber-900/80 bg-clip-text text-base font-semibold tracking-tight text-transparent sm:text-lg">
-            Pensión 360
-          </span>
+          <Link
+            href="/"
+            className="flex items-center gap-2.5 outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <AppLogo size={36} decorative priority className="h-9 w-9 sm:h-10 sm:w-10" />
+            <span className="font-heading bg-gradient-to-r from-foreground via-foreground to-amber-900/80 bg-clip-text text-base font-semibold tracking-tight text-transparent sm:text-lg">
+              Pensión 360
+            </span>
+          </Link>
           <nav className="flex shrink-0 items-center gap-2">
             {session ? (
               <Link
@@ -312,7 +319,10 @@ export default async function LandingPage() {
         </section>
 
         <footer className="border-t border-amber-200/50 bg-white/40 py-8 text-center text-xs text-muted-foreground backdrop-blur-sm">
-          <p className="font-medium text-neutral-700">Pensión 360</p>
+          <div className="flex flex-col items-center gap-2">
+            <AppLogo size={48} decorative className="opacity-95" />
+            <p className="font-medium text-neutral-700">Pensión 360</p>
+          </div>
           <p className="mt-1 opacity-90">Herramientas para asesores IMSS</p>
         </footer>
       </main>

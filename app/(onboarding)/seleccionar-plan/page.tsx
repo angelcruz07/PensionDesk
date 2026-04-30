@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { AppLogo } from "@/components/app-logo";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -49,7 +51,14 @@ export default async function SeleccionarPlanPage() {
       <header className="absolute right-4 top-4 sm:right-6 sm:top-6 lg:right-8 lg:top-8">
         <OnboardingSignOutButton />
       </header>
-      <div className="w-full max-w-5xl">
+      <div className="flex w-full max-w-5xl flex-col items-center gap-8">
+        <Link
+          href="/"
+          className="outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Pensión 360 — inicio"
+        >
+          <AppLogo size={64} decorative priority />
+        </Link>
         <SubscriptionCard
           forcePlanSelection
           accessError="no_plan"

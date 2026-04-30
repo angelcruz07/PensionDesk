@@ -14,6 +14,9 @@ export const MIN_ANIOS_MODALIDAD_40 = 1;
 /** Máximo de años permitidos cotizando en Modalidad 40 en este simulador. */
 export const MAX_ANIOS_MODALIDAD_40 = 5;
 
+/** Edad máxima de inicio de Modalidad 40 admitida en la UI (p. ej. inicio a los 64 con retiro a los 65). */
+export const MAX_EDAD_INICIO_MODALIDAD_40 = 64;
+
 /**
  * Pesos relativos nominado→estimación de salario cotizado histórico (calibración heredada del libro Excel interno).
  * `factorImssVsNominalEfectivo` = salario mensual 250 sem. ÷ sueldo nominal (derivado interno).

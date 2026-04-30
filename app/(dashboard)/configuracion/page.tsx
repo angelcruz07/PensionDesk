@@ -93,63 +93,65 @@ export default async function ConfiguracionPage({
       </div>
 
       <div className="grid min-w-0 gap-6 lg:gap-8 xl:grid-cols-2 xl:items-start">
-        <Card className="min-w-0 border-border shadow-sm">
-          <CardHeader className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="bg-primary/10 text-primary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
-                <UserRound className="h-4 w-4" aria-hidden />
-              </span>
-              <div className="min-w-0">
-                <CardTitle className="text-lg">Perfil</CardTitle>
-                <CardDescription>Nombre y correo de contacto de la cuenta.</CardDescription>
+        <div className="flex min-w-0 flex-col gap-6 lg:gap-8">
+          <Card className="min-w-0 border-border shadow-sm">
+            <CardHeader className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="bg-primary/10 text-primary inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+                  <UserRound className="h-4 w-4" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <CardTitle className="text-lg">Perfil</CardTitle>
+                  <CardDescription>Nombre y correo de contacto de la cuenta.</CardDescription>
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="min-w-0 space-y-2">
-                <Label htmlFor="cfg-nombre">Nombre</Label>
-                <Input
-                  id="cfg-nombre"
-                  name="nombre"
-                  type="text"
-                  defaultValue={profileName || "—"}
-                  disabled
-                  className="h-10 w-full bg-muted/40"
-                  autoComplete="name"
-                />
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor="cfg-nombre">Nombre</Label>
+                  <Input
+                    id="cfg-nombre"
+                    name="nombre"
+                    type="text"
+                    defaultValue={profileName || "—"}
+                    disabled
+                    className="h-10 w-full bg-muted/40"
+                    autoComplete="name"
+                  />
+                </div>
+                <div className="min-w-0 space-y-2">
+                  <Label htmlFor="cfg-correo">Correo electrónico</Label>
+                  <Input
+                    id="cfg-correo"
+                    name="email"
+                    type="email"
+                    defaultValue={profileEmail || "—"}
+                    disabled
+                    className="h-10 w-full bg-muted/40"
+                    autoComplete="email"
+                  />
+                </div>
               </div>
-              <div className="min-w-0 space-y-2">
-                <Label htmlFor="cfg-correo">Correo electrónico</Label>
-                <Input
-                  id="cfg-correo"
-                  name="email"
-                  type="email"
-                  defaultValue={profileEmail || "—"}
-                  disabled
-                  className="h-10 w-full bg-muted/40"
-                  autoComplete="email"
-                />
-              </div>
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground text-xs sm:max-w-[55%]">
-              Solo lectura: los datos siguen tu sesión de Better Auth. La edición llegará próximamente.
-            </p>
-            <Button type="button" disabled className="shrink-0 sm:ml-auto">
-              Guardar perfil
-            </Button>
-          </CardFooter>
-        </Card>
+            </CardContent>
+            <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground text-xs sm:max-w-[55%]">
+                Solo lectura: los datos siguen tu sesión de Better Auth. La edición llegará próximamente.
+              </p>
+              <Button type="button" disabled className="shrink-0 sm:ml-auto">
+                Guardar perfil
+              </Button>
+            </CardFooter>
+          </Card>
+
+          <ChangePasswordCard />
+        </div>
 
         <SubscriptionCard
           forcePlanSelection={forcePlanSelection}
           accessError={accessError}
           serverSubscription={serverSubscription}
         />
-
-        <ChangePasswordCard />
       </div>
     </div>
   );
