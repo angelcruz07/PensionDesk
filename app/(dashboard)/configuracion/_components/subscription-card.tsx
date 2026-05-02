@@ -21,6 +21,7 @@ import {
   isEssentialPlanExpired,
   normalizePlanName,
 } from "@/lib/essential-plan";
+import { stripeSubscriptionMeansEffectivelyActive } from "@/lib/stripe-subscription-status";
 import { subscriptionPlansCatalog } from "@/lib/subscription-plans";
 
 type ActiveSub = {
@@ -109,6 +110,37 @@ function toActiveSub(s: ServerSubscriptionSnapshot | undefined): ActiveSub | nul
   };
 }
 
+/** Fila lista para verse como suscripción vigente en UI (equivale a Stripe “pagada / usable”). */
+function subscriptionQualifiesAsActiveForDisplay(sub: ActiveSub): boolean {
+  return stripeSubscriptionMeansEffectivelyActive(sub.status);
+}
+
+function computeSubscriptionPresentation(sub: ActiveSub | undefined): {
+  active: ActiveSub | null;
+  expiredEssential: boolean;
+} {
+  if (!sub) return { active: null, expiredEssential: false };
+  const normalizedPlan = normalizePlanName(sub.plan);
+  const statusLower = (sub.status ?? "").trim().toLowerCase();
+
+  if (!subscriptionQualifiesAsActiveForDisplay(sub)) {
+    const showExpiredBanner =
+      normalizedPlan === ESSENTIAL_PLAN_NAME &&
+      statusLower !== "incomplete" &&
+      statusLower !== "incomplete_expired" &&
+      isEssentialPlanExpired(sub);
+    return { active: null, expiredEssential: showExpiredBanner };
+  }
+
+  const essentialExpired =
+    normalizedPlan === ESSENTIAL_PLAN_NAME && isEssentialPlanExpired(sub);
+
+  return {
+    active: essentialExpired ? null : sub,
+    expiredEssential: essentialExpired,
+  };
+}
+
 function sortSubsNewestFirst(list: ActiveSub[]): ActiveSub[] {
   return [...list].sort((a, b) => {
     const ta =
@@ -132,14 +164,9 @@ function applySubscriptionRow(
   setActiveSub: (v: ActiveSub | null) => void,
   setExpiredEssential: (v: boolean) => void,
 ) {
-  if (!first) {
-    setActiveSub(null);
-    setExpiredEssential(false);
-    return;
-  }
-  const isExpired = isEssentialPlanExpired(first);
-  setExpiredEssential(isExpired);
-  setActiveSub(isExpired ? null : first);
+  const { active, expiredEssential } = computeSubscriptionPresentation(first);
+  setActiveSub(active);
+  setExpiredEssential(expiredEssential);
 }
 
 export function SubscriptionCard({
@@ -163,13 +190,11 @@ export function SubscriptionCard({
   const searchParams = useSearchParams();
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const [activeSub, setActiveSub] = useState<ActiveSub | null>(() => {
-    const a = toActiveSub(serverSubscription);
-    if (!a) return null;
-    return isEssentialPlanExpired(a) ? null : a;
+    return computeSubscriptionPresentation(toActiveSub(serverSubscription) ?? undefined).active;
   });
   const [expiredEssentialPlan, setExpiredEssentialPlan] = useState(() => {
-    const a = toActiveSub(serverSubscription);
-    return a ? isEssentialPlanExpired(a) : false;
+    return computeSubscriptionPresentation(toActiveSub(serverSubscription) ?? undefined)
+      .expiredEssential;
   });
   const [listPending, setListPending] = useState(!serverSubscription);
   const [listError, setListError] = useState<string | null>(null);
@@ -242,16 +267,31 @@ export function SubscriptionCard({
 
   const serverSub = toActiveSub(serverSubscription);
   const serverSaysEssentialStillValid = Boolean(
-    serverSub && normalizePlanName(serverSub.plan) === ESSENTIAL_PLAN_NAME && !isEssentialPlanExpired(serverSub),
+    serverSub &&
+      subscriptionQualifiesAsActiveForDisplay(serverSub) &&
+      normalizePlanName(serverSub.plan) === ESSENTIAL_PLAN_NAME &&
+      !isEssentialPlanExpired(serverSub),
   );
-  /** Fila a mostrar: el cliente o, si aún no llegó, el snapshot del servidor (misma carga de Stripe). */
+  /**
+   * Plan “visible”: solo si hay fila en Prisma (`serverSubscription`), como el acceso a la calculadora.
+   * Better Auth puede listar objetos Stripe (p. ej. `active`) antes de persistir → sin fila BD no hay “plan actual”.
+   * Si la BD aún muestra incompleta pero Stripe ya cobró: se admite lista cliente como fallback.
+   */
   const displaySub: ActiveSub | null = (() => {
-    if (activeSub != null) return activeSub;
-    if (serverSub == null) return null;
-    if (normalizePlanName(serverSub.plan) === ESSENTIAL_PLAN_NAME) {
-      return isEssentialPlanExpired(serverSub) ? null : serverSub;
+    if (!serverSubscription) {
+      return null;
     }
-    return serverSub;
+
+    const serverBacked = serverSub ? computeSubscriptionPresentation(serverSub).active : null;
+    if (serverBacked != null) {
+      return serverBacked;
+    }
+
+    if (activeSub != null && subscriptionQualifiesAsActiveForDisplay(activeSub)) {
+      return activeSub;
+    }
+
+    return null;
   })();
 
   const subscriptionBodyLoading =
