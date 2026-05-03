@@ -188,9 +188,12 @@ function Kpi({
       )}
     >
       <p className="text-muted-foreground text-xs font-medium leading-snug">{title}</p>
-      <p className="mt-2 break-words font-mono text-xl font-semibold tabular-nums tracking-tight text-balance sm:text-2xl md:text-3xl">
-        {value}
-      </p>
+      {/* Cantidades: una sola línea; si no caben, scroll horizontal suave (evita partir dígitos). */}
+      <div className="mt-2 min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+        <p className="inline-block min-w-min whitespace-nowrap font-mono text-lg font-semibold tabular-nums tracking-tight sm:text-xl md:text-2xl">
+          {value}
+        </p>
+      </div>
       {subtitle ? (
         <p className="text-muted-foreground mt-1.5 text-xs leading-snug">{subtitle}</p>
       ) : null}
