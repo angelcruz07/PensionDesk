@@ -16,14 +16,7 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { AppLogo } from "@/components/app-logo";
-import { Badge } from "@/components/ui/badge";
-import {
-  BarChart3,
-  Calculator,
-  LayoutDashboard,
-  Settings,
-  Users,
-} from "lucide-react";
+import { Calculator, LayoutDashboard, Settings } from "lucide-react";
 
 const workspaceItems = [
   {
@@ -41,6 +34,8 @@ const accountItem = {
   tooltip: "Perfil, suscripción y seguridad",
 };
 
+/* Cartera / informes en vista previa — descomentar al activar rutas y UI.
+ * Restaurar imports: Badge desde @/components/ui/badge; Users, BarChart3 desde lucide-react.
 const managementItems = [
   {
     title: "Cartera de clientes",
@@ -55,6 +50,7 @@ const managementItems = [
     tooltip: "Reportes, exportación y analítica operativa",
   },
 ];
+*/
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -106,42 +102,10 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        {/* Gestión y analítica (vista previa): ver bloque managementItems arriba
         <SidebarSeparator className="mx-0" />
-
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-muted-foreground px-2 text-[11px] font-medium tracking-wide">
-            Gestión y analítica
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {managementItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    tooltip={item.tooltip}
-                    render={
-                      <Link
-                        href={item.href}
-                        className="flex w-full items-center gap-2"
-                      />
-                    }
-                  >
-                    <item.icon className="shrink-0" />
-                    <span className="flex flex-1 items-center justify-between gap-2">
-                      {item.title}
-                      <Badge
-                        variant="secondary"
-                        className="text-muted-foreground h-5 shrink-0 border border-border/80 bg-transparent px-1.5 text-[10px] font-medium group-data-[collapsible=icon]:hidden"
-                      >
-                        Vista previa
-                      </Badge>
-                    </span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <SidebarGroup>...</SidebarGroup>
+        */}
 
         <div className="mt-auto">
           <SidebarSeparator className="mx-0" />
