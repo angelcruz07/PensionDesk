@@ -37,13 +37,13 @@ export function RegistroForm() {
         email: email.trim(),
         password,
         name: displayName,
-        callbackURL: "/calculadora",
+        callbackURL: "/seleccionar-plan",
       });
       if (signError) {
         setError(signError.message ?? "No se pudo crear la cuenta.");
         return;
       }
-      router.push("/calculadora");
+      router.push("/seleccionar-plan");
       router.refresh();
     } finally {
       setLoading(false);

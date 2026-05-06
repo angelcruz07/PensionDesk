@@ -1,0 +1,637 @@
+"use client";
+
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AlertCircle, AlertTriangle, CreditCard } from "lucide-react";
+import { authClient } from "@/lib/auth-client";
+import {
+  ESSENTIAL_PLAN_DURATION_MS,
+  ESSENTIAL_PLAN_NAME,
+  isEssentialPlanExpired,
+  normalizePlanName,
+} from "@/lib/essential-plan";
+import { stripeSubscriptionMeansEffectivelyActive } from "@/lib/stripe-subscription-status";
+import { subscriptionPlansCatalog } from "@/lib/subscription-plans";
+
+type ActiveSub = {
+  plan: string;
+  status: string;
+  stripeSubscriptionId?: string | null;
+  cancelAtPeriodEnd?: boolean | null;
+  createdAt?: string | Date | null;
+  periodStart?: string | Date | null;
+  updatedAt?: string | Date | null;
+  periodEnd?: string | Date | null;
+};
+
+type AccessErrorCode = "expired_essential" | "payment_issue" | "no_plan";
+
+/** Snapshot desde Prisma (Server Component) para primer pintado y coherencia tras Checkout. */
+export type ServerSubscriptionSnapshot = {
+  plan: string;
+  status: string;
+  createdAt: string;
+  periodStart: string | null;
+  updatedAt: string;
+  periodEnd: string | null;
+} | null;
+
+const ESSENTIAL_PLAN_DISPLAY = "Plan Esencial";
+
+function titleCasePlan(plan: string) {
+  return plan
+    .split(/[\s_]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function statusLabel(status: string, plan?: string) {
+  const s = status.toLowerCase();
+  const planLower = (plan ?? "").toLowerCase();
+  if (s === "incomplete" && planLower === ESSENTIAL_PLAN_DISPLAY.toLowerCase()) {
+    return "Prueba gratuita (48 h)";
+  }
+  if (s === "active") return "Activo";
+  if (s === "trialing") return "Periodo de prueba";
+  if (s === "past_due") return "Pago vencido";
+  if (s === "canceled") return "Cancelado";
+  if (s === "incomplete") return "Incompleto";
+  return status;
+}
+
+function formatRenewal(periodEnd: string | Date | null | undefined) {
+  if (periodEnd == null) return "—";
+  const d = typeof periodEnd === "string" ? new Date(periodEnd) : periodEnd;
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-ES", { dateStyle: "long" });
+}
+
+function parseSafeDate(value: string | Date | null | undefined) {
+  if (value == null) return null;
+  const parsed = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function formatRenewalForPlan(sub: ActiveSub) {
+  const normalizedPlan = normalizePlanName(sub.plan);
+  if (normalizedPlan === ESSENTIAL_PLAN_NAME) {
+    const baseDate = parseSafeDate(sub.periodStart) ?? parseSafeDate(sub.updatedAt) ?? parseSafeDate(sub.createdAt);
+    if (!baseDate) return "—";
+    const expirationDate = new Date(baseDate.getTime() + ESSENTIAL_PLAN_DURATION_MS);
+    return expirationDate.toLocaleDateString("es-ES", { dateStyle: "long" });
+  }
+  return formatRenewal(sub.periodEnd);
+}
+
+function toActiveSub(s: ServerSubscriptionSnapshot | undefined): ActiveSub | null {
+  if (s == null) return null;
+  return {
+    plan: s.plan,
+    status: s.status,
+    stripeSubscriptionId: null,
+    cancelAtPeriodEnd: null,
+    createdAt: s.createdAt,
+    periodStart: s.periodStart,
+    updatedAt: s.updatedAt,
+    periodEnd: s.periodEnd,
+  };
+}
+
+/** Fila lista para verse como suscripción vigente en UI (equivale a Stripe “pagada / usable”). */
+function subscriptionQualifiesAsActiveForDisplay(sub: ActiveSub): boolean {
+  return stripeSubscriptionMeansEffectivelyActive(sub.status);
+}
+
+function computeSubscriptionPresentation(sub: ActiveSub | undefined): {
+  active: ActiveSub | null;
+  expiredEssential: boolean;
+} {
+  if (!sub) return { active: null, expiredEssential: false };
+  const normalizedPlan = normalizePlanName(sub.plan);
+  const statusLower = (sub.status ?? "").trim().toLowerCase();
+
+  if (!subscriptionQualifiesAsActiveForDisplay(sub)) {
+    const showExpiredBanner =
+      normalizedPlan === ESSENTIAL_PLAN_NAME &&
+      statusLower !== "incomplete" &&
+      statusLower !== "incomplete_expired" &&
+      isEssentialPlanExpired(sub);
+    return { active: null, expiredEssential: showExpiredBanner };
+  }
+
+  const essentialExpired =
+    normalizedPlan === ESSENTIAL_PLAN_NAME && isEssentialPlanExpired(sub);
+
+  return {
+    active: essentialExpired ? null : sub,
+    expiredEssential: essentialExpired,
+  };
+}
+
+function sortSubsNewestFirst(list: ActiveSub[]): ActiveSub[] {
+  return [...list].sort((a, b) => {
+    const ta =
+      a.createdAt == null
+        ? 0
+        : typeof a.createdAt === "string"
+          ? new Date(a.createdAt).getTime()
+          : a.createdAt.getTime();
+    const tb =
+      b.createdAt == null
+        ? 0
+        : typeof b.createdAt === "string"
+          ? new Date(b.createdAt).getTime()
+          : b.createdAt.getTime();
+    return tb - ta;
+  });
+}
+
+function applySubscriptionRow(
+  first: ActiveSub | undefined,
+  setActiveSub: (v: ActiveSub | null) => void,
+  setExpiredEssential: (v: boolean) => void,
+) {
+  const { active, expiredEssential } = computeSubscriptionPresentation(first);
+  setActiveSub(active);
+  setExpiredEssential(expiredEssential);
+}
+
+export function SubscriptionCard({
+  forcePlanSelection = false,
+  accessError,
+  serverSubscription = null,
+  redirectAfterPayment = "/configuracion",
+  loginCallbackUrl = "/configuracion",
+  hideBillingPortal = false,
+  hideRenewalAlerts = false,
+}: {
+  forcePlanSelection?: boolean;
+  accessError?: string;
+  serverSubscription?: ServerSubscriptionSnapshot;
+  redirectAfterPayment?: string;
+  loginCallbackUrl?: string;
+  hideBillingPortal?: boolean;
+  hideRenewalAlerts?: boolean;
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session, isPending: sessionPending } = authClient.useSession();
+  const [activeSub, setActiveSub] = useState<ActiveSub | null>(() => {
+    return computeSubscriptionPresentation(toActiveSub(serverSubscription) ?? undefined).active;
+  });
+  const [expiredEssentialPlan, setExpiredEssentialPlan] = useState(() => {
+    return computeSubscriptionPresentation(toActiveSub(serverSubscription) ?? undefined)
+      .expiredEssential;
+  });
+  const [listPending, setListPending] = useState(!serverSubscription);
+  const [listError, setListError] = useState<string | null>(null);
+  const [portalPending, setPortalPending] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+
+  const plansForUi = useMemo(
+    () =>
+      subscriptionPlansCatalog.map((plan) => ({
+        ...plan,
+        brand: "Pensión 360",
+      })),
+    [],
+  );
+
+  const sessionUserId = session?.user?.id;
+
+  const refreshSubscriptions = useCallback(async () => {
+    if (sessionUserId == null) {
+      setActiveSub(null);
+      setExpiredEssentialPlan(false);
+      setListPending(false);
+      return;
+    }
+    setListError(null);
+    const { data, error } = await authClient.subscription.list();
+    if (error) {
+      const detail =
+        error.message ||
+        ("status" in error && typeof error.status === "number"
+          ? `Error ${error.status}`
+          : null);
+      setListError(detail ?? "No se pudo cargar la suscripción.");
+      setListPending(false);
+      setActiveSub(null);
+      return;
+    }
+    const list = sortSubsNewestFirst(Array.isArray(data) ? (data as ActiveSub[]) : []);
+    const first = list[0] as ActiveSub | undefined;
+    if (!first) {
+      setActiveSub(null);
+      setExpiredEssentialPlan(false);
+      setListPending(false);
+    } else {
+      // Regla de negocio: Plan Esencial solo dura 48 horas desde su creación.
+      applySubscriptionRow(first, setActiveSub, setExpiredEssentialPlan);
+      setListPending(false);
+    }
+    router.refresh();
+  }, [sessionUserId, router]);
+
+  const serverKey = serverSubscription
+    ? `${serverSubscription.plan}:${serverSubscription.createdAt}`
+    : "none";
+
+  useLayoutEffect(() => {
+    if (serverSubscription) {
+      applySubscriptionRow(
+        toActiveSub(serverSubscription) ?? undefined,
+        setActiveSub,
+        setExpiredEssentialPlan,
+      );
+      setListPending(false);
+    }
+  }, [serverKey, serverSubscription]);
+
+  useEffect(() => {
+    void refreshSubscriptions();
+  }, [refreshSubscriptions]);
+
+  const serverSub = toActiveSub(serverSubscription);
+  const serverSaysEssentialStillValid = Boolean(
+    serverSub &&
+      subscriptionQualifiesAsActiveForDisplay(serverSub) &&
+      normalizePlanName(serverSub.plan) === ESSENTIAL_PLAN_NAME &&
+      !isEssentialPlanExpired(serverSub),
+  );
+  /**
+   * Plan “visible”: solo si hay fila en Prisma (`serverSubscription`), como el acceso a la calculadora.
+   * Better Auth puede listar objetos Stripe (p. ej. `active`) antes de persistir → sin fila BD no hay “plan actual”.
+   * Si la BD aún muestra incompleta pero Stripe ya cobró: se admite lista cliente como fallback.
+   */
+  const displaySub: ActiveSub | null = (() => {
+    if (!serverSubscription) {
+      return null;
+    }
+
+    const serverBacked = serverSub ? computeSubscriptionPresentation(serverSub).active : null;
+    if (serverBacked != null) {
+      return serverBacked;
+    }
+
+    if (activeSub != null && subscriptionQualifiesAsActiveForDisplay(activeSub)) {
+      return activeSub;
+    }
+
+    return null;
+  })();
+
+  const subscriptionBodyLoading =
+    (sessionPending && !serverSubscription) ||
+    (Boolean(session?.user) && listPending && !serverSubscription);
+  const showEssentialExpiredNotice =
+    expiredEssentialPlan && !serverSaysEssentialStillValid && !subscriptionBodyLoading;
+  const showActive = Boolean(
+    session?.user && displaySub && !subscriptionBodyLoading,
+  );
+  const showPlans =
+    Boolean(session?.user) && !subscriptionBodyLoading && plansForUi.length > 0;
+  const normalizedCurrentPlan = displaySub ? normalizePlanName(displaySub.plan) : null;
+  const isOnboardingMode = hideBillingPortal;
+  const cardTitle = isOnboardingMode ? "¡Bienvenido a Pensión 360!" : "Suscripción";
+  const cardDescription = isOnboardingMode
+    ? "Selecciona el plan que mejor se adapte a tus necesidades para comenzar con tus cálculos."
+    : "Plan, facturación y estado del servicio.";
+
+  const handleBillingPortal = async () => {
+    setPortalPending(true);
+    const returnUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/configuracion`
+        : "/configuracion";
+    const { error } = await authClient.subscription.billingPortal({
+      returnUrl,
+    });
+    setPortalPending(false);
+    if (error) {
+      setListError(error.message ?? "No se pudo abrir el portal de facturación.");
+    }
+  };
+
+  const handleSubscribe = async (planName: string) => {
+    if (!session?.user) {
+      router.push(`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`);
+      return;
+    }
+    setCheckoutPlan(planName);
+    setListError(null);
+    const checkoutReturnUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}${redirectAfterPayment.startsWith("/") ? redirectAfterPayment : `/${redirectAfterPayment}`}`
+        : redirectAfterPayment;
+    const upgradePayload = {
+      plan: planName,
+      successUrl: checkoutReturnUrl,
+      cancelUrl: checkoutReturnUrl,
+      returnUrl: checkoutReturnUrl,
+      ...(displaySub?.stripeSubscriptionId ? { subscriptionId: displaySub.stripeSubscriptionId } : {}),
+    };
+    const { error } = await authClient.subscription.upgrade(upgradePayload);
+    setCheckoutPlan(null);
+    if (error) {
+      setListError(error.message ?? "No se pudo iniciar el checkout.");
+    }
+  };
+
+  const forcePlanSelectionFromUrl = searchParams.get("planRequired") === "1";
+  const urlAccessError = searchParams.get("error");
+  const normalizedAccessError = (urlAccessError ?? accessError ?? "").toLowerCase();
+  const redirectErrorCode: AccessErrorCode =
+    normalizedAccessError === "expired_essential" || normalizedAccessError === "payment_issue"
+      ? normalizedAccessError
+      : "no_plan";
+  const shouldForcePlanSelection = forcePlanSelection || forcePlanSelectionFromUrl;
+  const alertCode: AccessErrorCode | null = shouldForcePlanSelection ? redirectErrorCode : null;
+  const alertUi =
+    alertCode === "payment_issue"
+      ? {
+          className:
+            "flex items-start gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-800",
+          icon: <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />,
+          message:
+            "Hubo un problema con tu pago o tu suscripción está inactiva. Actualiza tu plan para recuperar el acceso.",
+        }
+      : alertCode === "expired_essential"
+        ? {
+            className:
+              "flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800",
+            icon: <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />,
+            message:
+              "Tu acceso de 48 horas ha concluido. Elige un plan mensual para seguir usando la calculadora y generar reportes.",
+          }
+        : alertCode === "no_plan"
+          ? {
+              className:
+                "flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800",
+              icon: <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />,
+              message: "Selecciona un plan para comenzar a usar Pensión 360.",
+            }
+          : null;
+
+  return (
+    <Card className="min-w-0 border-border shadow-sm">
+      <CardHeader className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="bg-amber-500/12 text-amber-800 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg">
+            <CreditCard className="h-4 w-4" aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <CardTitle className="text-lg">{cardTitle}</CardTitle>
+            <CardDescription>{cardDescription}</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {alertUi && !hideRenewalAlerts ? (
+          <div className={alertUi.className}>
+            {alertUi.icon}
+            <p>{alertUi.message}</p>
+          </div>
+        ) : null}
+        {shouldForcePlanSelection ? (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <p>Para acceder a la calculadora, primero debes seleccionar un plan.</p>
+          </div>
+        ) : null}
+        {listError ? (
+          <p className="text-destructive text-xs leading-relaxed">{listError}</p>
+        ) : null}
+        {showEssentialExpiredNotice && !hideRenewalAlerts ? (
+          <p className="text-amber-700 text-xs leading-relaxed">
+            Tu Plan Esencial expiró porque superó las 48 horas desde su activación. Puedes
+            suscribirte nuevamente o cambiar a un plan recurrente.
+          </p>
+        ) : null}
+
+        {subscriptionBodyLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="cfg-plan">Plan</Label>
+              <div className="bg-muted/40 h-10 w-full animate-pulse rounded-md border border-border" />
+            </div>
+            <div className="min-w-0 space-y-2">
+              <Label htmlFor="cfg-estado">Estado</Label>
+              <div className="bg-muted/40 h-10 w-full animate-pulse rounded-md border border-border" />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="cfg-renovacion">Próxima renovación</Label>
+              <div className="bg-muted/40 h-10 w-full animate-pulse rounded-md border border-border" />
+            </div>
+          </div>
+        ) : null}
+
+        {showActive && displaySub ? (
+          <>
+            {(() => {
+              const isEssentialPlan = normalizePlanName(displaySub.plan) === ESSENTIAL_PLAN_NAME;
+              const renewalLabel = isEssentialPlan ? "Expira el" : "Próxima renovación";
+              return (
+                <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="cfg-plan">Plan</Label>
+                <Input
+                  id="cfg-plan"
+                  readOnly
+                  value={titleCasePlan(displaySub.plan)}
+                  className="h-10 w-full bg-muted/40"
+                />
+              </div>
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="cfg-estado">Estado</Label>
+                <Input
+                  id="cfg-estado"
+                  readOnly
+                  value={statusLabel(displaySub.status, displaySub.plan)}
+                  className="h-10 w-full bg-muted/40"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cfg-renovacion">{renewalLabel}</Label>
+              <Input
+                id="cfg-renovacion"
+                readOnly
+                value={formatRenewalForPlan(displaySub)}
+                className="h-10 w-full bg-muted/40"
+              />
+            </div>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Gestiona métodos de pago e historial desde el portal seguro de Stripe.
+            </p>
+                </>
+              );
+            })()}
+          </>
+        ) : null}
+        {!subscriptionBodyLoading && !showActive && Boolean(session?.user) ? (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="cfg-plan-empty">Plan</Label>
+                <Input
+                  id="cfg-plan-empty"
+                  readOnly
+                  value="No tienes un plan activo"
+                  className="h-10 w-full bg-muted/40"
+                />
+              </div>
+              <div className="min-w-0 space-y-2">
+                <Label htmlFor="cfg-estado-empty">Estado</Label>
+                <Input
+                  id="cfg-estado-empty"
+                  readOnly
+                  value="Sin suscripción"
+                  className="h-10 w-full bg-muted/40"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cfg-renovacion-empty">Próxima renovación</Label>
+              <Input
+                id="cfg-renovacion-empty"
+                readOnly
+                value="N/A"
+                className="h-10 w-full bg-muted/40"
+              />
+            </div>
+          </>
+        ) : null}
+
+        {showPlans ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {plansForUi.map((plan) => {
+                const isCurrentPlan =
+                  normalizedCurrentPlan != null &&
+                  normalizePlanName(plan.name) === normalizedCurrentPlan;
+                const buttonLabel = isCurrentPlan
+                  ? "Tu plan actual"
+                  : checkoutPlan === plan.name
+                    ? "Redirigiendo…"
+                    : showActive
+                      ? "Cambiar plan"
+                      : "Suscribirse";
+
+                return (
+                  <div
+                    key={plan.name}
+                    className="flex h-full flex-col gap-3 rounded-lg border border-border bg-muted/20 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-muted-foreground text-xs leading-none">{plan.brand}</p>
+                      {isCurrentPlan ? (
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium leading-none text-emerald-700">
+                          Actual
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-sm font-medium leading-snug">{plan.name}</p>
+                    <p className="text-muted-foreground text-sm leading-none">
+                      {plan.priceLabel} MXN - {plan.billingLabel}
+                    </p>
+                    <p className="text-muted-foreground flex-1 text-xs leading-relaxed">
+                      {plan.description}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full"
+                      disabled={checkoutPlan !== null || isCurrentPlan}
+                      onClick={() => void handleSubscribe(plan.name)}
+                    >
+                      {buttonLabel}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              El pago se procesa de forma segura con Stripe Checkout. Tras completar el pago
+              volverás a esta página.
+            </p>
+          </>
+        ) : null}
+
+        {!session?.user && !sessionPending ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {plansForUi.map((plan) => (
+                <div
+                  key={plan.name}
+                  className="flex h-full flex-col gap-3 rounded-lg border border-border bg-muted/20 p-3"
+                >
+                  <p className="text-muted-foreground text-xs leading-none">{plan.brand}</p>
+                  <p className="text-sm font-medium leading-snug">{plan.name}</p>
+                  <p className="text-muted-foreground text-sm leading-none">
+                    {plan.priceLabel} MXN - {plan.billingLabel}
+                  </p>
+                  <p className="text-muted-foreground flex-1 text-xs leading-relaxed">
+                    {plan.description}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full"
+                    variant="secondary"
+                    onClick={() =>
+                      router.push(`/login?callbackUrl=${encodeURIComponent(loginCallbackUrl)}`)
+                    }
+                  >
+                    Suscribirse
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Inicia sesión para contratar un plan. El cobro se realiza con Stripe.
+            </p>
+          </>
+        ) : null}
+      </CardContent>
+      <CardFooter className="flex flex-col gap-3 border-t bg-muted/20 sm:flex-row sm:items-center sm:justify-between">
+        {showActive && !hideBillingPortal ? (
+          <>
+            <p className="text-muted-foreground hidden text-xs sm:max-w-[55%] sm:block">
+              Facturación y métodos de pago se configuran en el portal de Stripe.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:ml-auto sm:w-auto"
+              disabled={portalPending}
+              onClick={() => void handleBillingPortal()}
+            >
+              {portalPending ? "Abriendo portal…" : "Gestionar plan"}
+            </Button>
+          </>
+        ) : (
+          <p className="text-muted-foreground text-xs sm:max-w-[70%]">
+            {session?.user
+              ? "Los planes mostrados usan los precios configurados en Stripe."
+              : "Accede con tu cuenta para activar una suscripción."}
+          </p>
+        )}
+      </CardFooter>
+    </Card>
+  );
+}

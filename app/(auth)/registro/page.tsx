@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { RegistroForm } from "./registro-form";
 
 export const metadata: Metadata = {
-  title: "Registro · Pensión Desk",
+  title: "Registro · Pensión 360",
   description: "Crea tu cuenta.",
 };
 
@@ -14,7 +14,7 @@ export default async function RegistroPage() {
     headers: await headers(),
   });
   if (session) {
-    redirect("/calculadora");
+    redirect("/seleccionar-plan");
   }
 
   return <RegistroForm />;

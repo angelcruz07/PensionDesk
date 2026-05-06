@@ -1,7 +1,5 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
-import { unstable_noStore as noStore } from "next/cache";
-import { Modalidad40Calculator } from "@/app/_components/modalidad-40-calculator";
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
   ESSENTIAL_PLAN_NAME,
@@ -9,8 +7,6 @@ import {
   normalizePlanName,
 } from "@/lib/essential-plan";
 import { prisma } from "@/lib/prisma";
-
-export const dynamic = "force-dynamic";
 
 const RECURRING_PLANS = new Set(["plan profesional", "plan despacho"]);
 const SUCCESS_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
@@ -42,7 +38,6 @@ function hasFuturePeriodEnd(subscription: ActiveSubscription) {
   return periodEndDate.getTime() > Date.now();
 }
 
-/** Solo Profesional / Despacho: estados y periodEnd; no aplica a Plan Esencial. */
 function hasRecurringPlanAccess(subscription: ActiveSubscription) {
   const normalizedStatus = subscription.status.toLowerCase();
   const periodEnded =
@@ -52,32 +47,17 @@ function hasRecurringPlanAccess(subscription: ActiveSubscription) {
   return hasFuturePeriodEnd(subscription);
 }
 
-function getRecurringAccessErrorCode(subscription: ActiveSubscription) {
-  const normalizedStatus = subscription.status.toLowerCase();
-  const periodEnded =
-    subscription.periodEnd != null && !hasFuturePeriodEnd(subscription);
-  if (BLOCKED_SUBSCRIPTION_STATUSES.has(normalizedStatus)) return "payment_issue";
-  if (SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus) && periodEnded) {
-    return "payment_issue";
-  }
-  if (!SUCCESS_SUBSCRIPTION_STATUSES.has(normalizedStatus) && !hasFuturePeriodEnd(subscription)) {
-    return "payment_issue";
-  }
-  return "no_plan";
-}
-
-export default async function CalculadoraPage() {
-  noStore();
+export async function GET() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-  if (!session) {
-    redirect("/login?callbackUrl=/calculadora");
+
+  if (!session?.user) {
+    return NextResponse.json({ hasAccess: false, error: "unauthorized" }, { status: 401 });
   }
+
   const activeSubscription = (await prisma.subscription.findFirst({
-    where: {
-      referenceId: session.user.id,
-    },
+    where: { referenceId: session.user.id },
     orderBy: { createdAt: "desc" },
     select: {
       plan: true,
@@ -90,25 +70,24 @@ export default async function CalculadoraPage() {
   })) as ActiveSubscription | null;
 
   if (!activeSubscription) {
-    redirect("/configuracion?planRequired=1&error=no_plan");
+    return NextResponse.json({ hasAccess: false, error: "no_plan" });
   }
 
   const plan = normalizePlanName(activeSubscription.plan);
-
   if (plan === ESSENTIAL_PLAN_NAME) {
-    if (isEssentialPlanExpired(activeSubscription)) {
-      redirect("/configuracion?planRequired=1&error=expired_essential");
-    }
-    return <Modalidad40Calculator />;
+    return NextResponse.json({
+      hasAccess: !isEssentialPlanExpired(activeSubscription),
+      error: isEssentialPlanExpired(activeSubscription) ? "expired_essential" : null,
+    });
   }
 
   if (RECURRING_PLANS.has(plan)) {
-    if (!hasRecurringPlanAccess(activeSubscription)) {
-      const error = getRecurringAccessErrorCode(activeSubscription);
-      redirect(`/configuracion?planRequired=1&error=${error}`);
-    }
-    return <Modalidad40Calculator />;
+    const hasAccess = hasRecurringPlanAccess(activeSubscription);
+    return NextResponse.json({
+      hasAccess,
+      error: hasAccess ? null : "payment_issue",
+    });
   }
 
-  redirect("/configuracion?planRequired=1&error=no_plan");
+  return NextResponse.json({ hasAccess: false, error: "no_plan" });
 }
